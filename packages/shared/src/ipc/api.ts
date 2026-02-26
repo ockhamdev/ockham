@@ -1,5 +1,6 @@
 import type { Note } from '../types'
 import type { AddNotePayload, UpdateNotePayload } from './payloads'
+import type { ScanResult } from '../types'
 
 /**
  * WorkspaceAPI — exposed to renderer via contextBridge.
@@ -25,4 +26,16 @@ export interface NotesAPI {
     addNote(payload: AddNotePayload): Promise<Note>
     updateNote(payload: UpdateNotePayload): Promise<Note>
     deleteNote(id: string): Promise<void>
+}
+
+/**
+ * CodeScanAPI — exposed to renderer via contextBridge.
+ */
+export interface CodeScanAPI {
+    /** Run a full code scan on the current workspace */
+    runScan(): Promise<ScanResult>
+    /** Get the last scan result for the current workspace */
+    getResult(): Promise<ScanResult | null>
+    /** Get the source code of a file relative to workspace */
+    getFileSource(relativePath: string): Promise<string | null>
 }

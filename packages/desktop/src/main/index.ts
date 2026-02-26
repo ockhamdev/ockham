@@ -4,6 +4,7 @@ import { windowManager } from './windowManager'
 import { getConfig, getRecentWorkspaces, setLastWorkspace, addRecentWorkspace } from './infrastructure/appConfig'
 import { registerWorkspaceHandlers } from './ipc/workspaceHandlers'
 import { registerNotesHandlers } from './ipc/notesHandlers'
+import { registerCodescanHandlers } from './ipc/codescanHandlers'
 import path from 'path'
 
 /**
@@ -169,6 +170,7 @@ app.whenReady().then(() => {
     // Register all IPC handlers
     registerWorkspaceHandlers()
     registerNotesHandlers()
+    registerCodescanHandlers()
 
     // Build menus
     buildAppMenu()

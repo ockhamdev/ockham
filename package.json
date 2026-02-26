@@ -4,10 +4,12 @@
   "private": true,
   "description": "Ockham Desktop Application",
   "scripts": {
-    "dev": "pnpm --filter @ockham/shared build && pnpm --filter @ockham/desktop dev",
-    "build": "pnpm --filter @ockham/shared build && pnpm --filter @ockham/desktop build",
-    "build:shared": "pnpm --filter @ockham/shared build",
+    "dev": "pnpm --filter @ockham/codescan build && pnpm --filter @ockham/shared build && pnpm --filter @ockham/desktop dev",
+    "build": "pnpm --filter @ockham/codescan build && pnpm --filter @ockham/shared build && pnpm --filter @ockham/desktop build",
+    "build:shared": "pnpm --filter @ockham/codescan build && pnpm --filter @ockham/shared build",
     "release": "bash scripts/release.sh",
+    "build:unpack": "pnpm build && pnpm --filter @ockham/desktop exec electron-builder --dir",
+    "build:mac": "pnpm build && pnpm --filter @ockham/desktop exec electron-builder --mac",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix"
   },

@@ -21,8 +21,20 @@ importers:
         specifier: ^8.56.1
         version: 8.56.1(eslint@9.39.3)(typescript@5.9.3)
 
+  packages/codescan:
+    dependencies:
+      ignore:
+        specifier: ^7.0.0
+        version: 7.0.5
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/desktop:
     dependencies:
+      '@ockham/codescan':
+        specifier: workspace:*
+        version: link:../codescan
       '@ockham/shared':
         specifier: workspace:*
         version: link:../shared
@@ -86,6 +98,10 @@ importers:
         version: 5.9.3
 
   packages/shared:
+    dependencies:
+      '@ockham/codescan':
+        specifier: workspace:*
+        version: link:../codescan
     devDependencies:
       typescript:
         specifier: ^5.7.0

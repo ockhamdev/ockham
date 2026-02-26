@@ -14,6 +14,11 @@ export const IPC = {
     NOTES_ADD: 'notes:add',
     NOTES_UPDATE: 'notes:update',
     NOTES_DELETE: 'notes:delete',
+
+    // CodeScan
+    CODESCAN_RUN: 'codescan:run',
+    CODESCAN_GET_RESULT: 'codescan:getResult',
+    CODESCAN_GET_FILE_SOURCE: 'codescan:getFileSource',
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

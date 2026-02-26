@@ -9,6 +9,9 @@ echo "🔍 Checking ESLint..."
 pnpm lint
 echo "✅ ESLint passed!"
 
+echo "🔨 Building @ockham/codescan..."
+pnpm --filter @ockham/codescan build
+
 echo "🔨 Building @ockham/shared..."
 pnpm --filter @ockham/shared build
 

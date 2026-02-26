@@ -33,8 +33,11 @@ class WindowManager {
             win.show()
         })
 
+        // Capture ID before the window gets destroyed
+        const wcId = win.webContents.id
+
         win.on('closed', () => {
-            this.workspaceMap.delete(win.webContents.id)
+            this.workspaceMap.delete(wcId)
         })
 
         if (workspacePath) {

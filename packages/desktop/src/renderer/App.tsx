@@ -1,22 +1,25 @@
 import React, { useState } from 'react'
-import { ConfigProvider, Layout, Menu, Dropdown, Button, theme as antTheme } from 'antd'
+import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as antTheme } from 'antd'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-    FileTextOutlined,
+    CodeOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     SettingOutlined,
     SunOutlined,
     MoonOutlined,
     DesktopOutlined,
+    SwapOutlined,
+    FolderOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
 import { WelcomePage } from './containers/WelcomePage'
-import { NotesPage } from './containers/NotesPage'
+import { CodePage } from './containers/CodePage'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
+const { Text } = Typography
 
 const themeOptions: { key: ThemeMode; label: string; icon: React.ReactNode }[] = [
     { key: 'system', label: 'System', icon: <DesktopOutlined /> },
@@ -24,17 +27,24 @@ const themeOptions: { key: ThemeMode; label: string; icon: React.ReactNode }[] =
     { key: 'dark', label: 'Dark', icon: <MoonOutlined /> },
 ]
 
-function AppLayout() {
+interface AppLayoutProps {
+    currentWorkspace: string
+    openWorkspace: (path?: string) => Promise<string | null>
+}
+
+function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
     const [collapsed, setCollapsed] = useState(false)
     const navigate = useNavigate()
     const location = useLocation()
     const { mode, setMode } = useTheme()
 
+    const folderName = currentWorkspace.split('/').pop() || currentWorkspace
+
     const menuItems = [
         {
-            key: '/notes',
-            icon: <FileTextOutlined />,
-            label: 'Notes',
+            key: '/code',
+            icon: <CodeOutlined />,
+            label: 'Code',
         },
     ]
 
@@ -135,11 +145,35 @@ function AppLayout() {
                         // @ts-expect-error WebkitAppRegion is an Electron-specific CSS property
                         style={{ WebkitAppRegion: 'no-drag' }}
                     />
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginLeft: 12,
+                            // @ts-expect-error WebkitAppRegion is an Electron-specific CSS property
+                            WebkitAppRegion: 'no-drag',
+                        }}
+                    >
+                        <FolderOutlined style={{ fontSize: 14, opacity: 0.6 }} />
+                        <Text
+                            style={{ fontSize: 13, maxWidth: 300 }}
+                            ellipsis={{ tooltip: currentWorkspace }}
+                        >
+                            {folderName}
+                        </Text>
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<SwapOutlined />}
+                            onClick={() => openWorkspace()}
+                        />
+                    </div>
                 </Header>
                 <Content style={{ overflow: 'auto' }}>
                     <Routes>
-                        <Route path="/" element={<NotesPage />} />
-                        <Route path="/notes" element={<NotesPage />} />
+                        <Route path="/" element={<CodePage />} />
+                        <Route path="/code" element={<CodePage />} />
                     </Routes>
                 </Content>
             </Layout>
@@ -149,7 +183,7 @@ function AppLayout() {
 
 export default function App() {
     const { resolvedTheme } = useTheme()
-    const { currentWorkspace, loading } = useWorkspace()
+    const { currentWorkspace, recentWorkspaces, loading, openWorkspace, removeRecent } = useWorkspace()
 
     if (loading) {
         return null
@@ -168,7 +202,18 @@ export default function App() {
     return (
         <ConfigProvider theme={antdTheme}>
             <HashRouter>
-                {currentWorkspace ? <AppLayout /> : <WelcomePage />}
+                {currentWorkspace ? (
+                    <AppLayout
+                        currentWorkspace={currentWorkspace}
+                        openWorkspace={openWorkspace}
+                    />
+                ) : (
+                    <WelcomePage
+                        recentWorkspaces={recentWorkspaces}
+                        openWorkspace={openWorkspace}
+                        removeRecent={removeRecent}
+                    />
+                )}
             </HashRouter>
         </ConfigProvider>
     )

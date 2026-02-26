@@ -18,3 +18,10 @@ export interface AppConfig {
     /** Recent workspace paths (max 10, deduped) */
     recentWorkspaces?: string[]
 }
+
+// Re-export codescan types for use in shared API and renderer
+export type {
+    ScanResult,
+    FileEntry,
+    SyntaxUnit,
+} from '@ockham/codescan'

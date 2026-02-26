@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@ockham/shared'
-import type { WorkspaceAPI, NotesAPI } from '@ockham/shared'
+import type { WorkspaceAPI, NotesAPI, CodeScanAPI } from '@ockham/shared'
 import type { AddNotePayload, UpdateNotePayload } from '@ockham/shared'
 
 /**
@@ -29,6 +29,17 @@ const notesApi: NotesAPI = {
     deleteNote: (id: string) => ipcRenderer.invoke(IPC.NOTES_DELETE, id),
 }
 
+/**
+ * CodeScan API — exposed as window.codescanApi
+ */
+const codescanApi: CodeScanAPI = {
+    runScan: () => ipcRenderer.invoke(IPC.CODESCAN_RUN),
+    getResult: () => ipcRenderer.invoke(IPC.CODESCAN_GET_RESULT),
+    getFileSource: (relativePath: string) =>
+        ipcRenderer.invoke(IPC.CODESCAN_GET_FILE_SOURCE, relativePath),
+}
+
 // Expose typed APIs to renderer
 contextBridge.exposeInMainWorld('workspaceApi', workspaceApi)
 contextBridge.exposeInMainWorld('notesApi', notesApi)
+contextBridge.exposeInMainWorld('codescanApi', codescanApi)

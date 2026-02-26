@@ -67,9 +67,26 @@ body,
   border-right: 1px solid var(--border-color);
 }
 
-/* Smooth transitions */
+/* Header */
+.ant-layout-header {
+  background: var(--bg-primary) !important;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Content area */
+.ant-layout-content {
+  background: var(--bg-primary) !important;
+}
+
+/* Main layout wrapper */
 .ant-layout {
+  background: var(--bg-primary) !important;
   transition: all 0.2s ease;
+}
+
+/* Menu follows sidebar */
+.ant-menu {
+  background: transparent !important;
 }
 
 /* Welcome page hover effect */

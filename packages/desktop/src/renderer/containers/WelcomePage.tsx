@@ -5,13 +5,16 @@ import {
     DeleteOutlined,
     FolderOutlined,
 } from '@ant-design/icons'
-import { useWorkspace } from '../hooks/useWorkspace'
 
 const { Title, Text, Paragraph } = Typography
 
-export function WelcomePage() {
-    const { recentWorkspaces, openWorkspace, removeRecent } = useWorkspace()
+interface WelcomePageProps {
+    recentWorkspaces: string[]
+    openWorkspace: (path?: string) => Promise<string | null>
+    removeRecent: (path: string) => Promise<void>
+}
 
+export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: WelcomePageProps) {
     return (
         <div
             style={{

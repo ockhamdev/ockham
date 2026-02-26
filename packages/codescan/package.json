@@ -1,5 +1,5 @@
 {
-    "name": "@ockham/shared",
+    "name": "@ockham/codescan",
     "version": "0.1.0",
     "private": true,
     "main": "./dist/index.js",
@@ -11,9 +11,7 @@
         "lint:fix": "eslint src/ --fix"
     },
     "dependencies": {
-        "@ockham/codescan": "workspace:*"
-    },
-    "devDependencies": {
+        "ignore": "^7.0.0",
         "typescript": "^5.7.0"
     }
 }
