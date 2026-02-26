@@ -1,0 +1,39 @@
+{
+    "name": "@ockham/desktop",
+    "version": "0.1.0",
+    "private": true,
+    "main": "./out/main/index.js",
+    "scripts": {
+        "dev": "electron-vite dev",
+        "build": "electron-vite build",
+        "postinstall": "electron-builder install-app-deps",
+        "build:unpack": "pnpm build && electron-builder --dir",
+        "build:mac": "pnpm build && electron-builder --mac",
+        "lint": "eslint src/",
+        "lint:fix": "eslint src/ --fix"
+    },
+    "dependencies": {
+        "@ockham/shared": "workspace:*",
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "@electron-toolkit/utils": "^4.0.0",
+        "@types/path-browserify": "^1.0.3",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@types/uuid": "^10.0.0",
+        "@vitejs/plugin-react": "^4.3.0",
+        "antd": "^6.3.0",
+        "electron": "^34.0.0",
+        "electron-builder": "^25.1.0",
+        "electron-vite": "^5.0.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^7.0.1",
+        "eslint-plugin-react-refresh": "^0.5.2",
+        "path-browserify": "^1.0.1",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "react-router-dom": "^7.2.0",
+        "typescript": "^5.7.0"
+    }
+}
