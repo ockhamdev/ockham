@@ -1,0 +1,12 @@
+[
+  {
+    "id": "019c99f3-fa61-75ed-a375-03d489f94c5b",
+    "key": "packages/codescan/src/scanners/typescriptScanner.ts::FirstStatement",
+    "filePath": "packages/codescan/src/scanners/typescriptScanner.ts",
+    "line": 9,
+    "unitType": "FirstStatement",
+    "unitName": "typescriptScanner",
+    "description": "Test for typescriptScanner",
+    "createdAt": "2026-02-26T12:37:09.345Z"
+  }
+]

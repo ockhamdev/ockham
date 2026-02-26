@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@ockham/shared'
-import type { WorkspaceAPI, NotesAPI, CodeScanAPI } from '@ockham/shared'
-import type { AddNotePayload, UpdateNotePayload } from '@ockham/shared'
+import type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI } from '@ockham/shared'
+import type { AddNotePayload, UpdateNotePayload, StoryMessage, AiConfig, TestCase } from '@ockham/shared'
 
 /**
  * Workspace API — exposed as window.workspaceApi
@@ -39,7 +39,39 @@ const codescanApi: CodeScanAPI = {
         ipcRenderer.invoke(IPC.CODESCAN_GET_FILE_SOURCE, relativePath),
 }
 
+/**
+ * Story API — exposed as window.storyApi
+ */
+const storyApi: StoryAPI = {
+    chat: (messages: StoryMessage[]) =>
+        ipcRenderer.invoke(IPC.STORY_CHAT, messages),
+    load: () => ipcRenderer.invoke(IPC.STORY_LOAD),
+    save: (items: unknown[]) => ipcRenderer.invoke(IPC.STORY_SAVE, items),
+}
+
+/**
+ * AI Config API — exposed as window.aiConfigApi
+ */
+const aiConfigApi: AiConfigAPI = {
+    getConfig: () => ipcRenderer.invoke(IPC.AI_GET_CONFIG),
+    setConfig: (config: AiConfig) =>
+        ipcRenderer.invoke(IPC.AI_SET_CONFIG, config),
+}
+
+/**
+ * Tests API — exposed as window.testsApi
+ */
+const testsApi: TestsAPI = {
+    load: () => ipcRenderer.invoke(IPC.TESTS_LOAD),
+    save: (items: TestCase[]) => ipcRenderer.invoke(IPC.TESTS_SAVE, items),
+    lookupUnit: (filePath: string, line: number) =>
+        ipcRenderer.invoke(IPC.TESTS_LOOKUP_UNIT, filePath, line),
+}
+
 // Expose typed APIs to renderer
 contextBridge.exposeInMainWorld('workspaceApi', workspaceApi)
 contextBridge.exposeInMainWorld('notesApi', notesApi)
 contextBridge.exposeInMainWorld('codescanApi', codescanApi)
+contextBridge.exposeInMainWorld('storyApi', storyApi)
+contextBridge.exposeInMainWorld('aiConfigApi', aiConfigApi)
+contextBridge.exposeInMainWorld('testsApi', testsApi)

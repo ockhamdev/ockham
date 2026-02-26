@@ -3,6 +3,8 @@ import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as an
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
     CodeOutlined,
+    BookOutlined,
+    ExperimentOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     SettingOutlined,
@@ -16,6 +18,8 @@ import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
 import { WelcomePage } from './containers/WelcomePage'
 import { CodePage } from './containers/CodePage'
+import { StoryPage } from './containers/StoryPage'
+import { TestsPage } from './containers/TestsPage'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
@@ -42,9 +46,19 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
 
     const menuItems = [
         {
+            key: '/story',
+            icon: <BookOutlined />,
+            label: 'Stories',
+        },
+        {
             key: '/code',
             icon: <CodeOutlined />,
-            label: 'Code',
+            label: 'Codes',
+        },
+        {
+            key: '/tests',
+            icon: <ExperimentOutlined />,
+            label: 'Tests',
         },
     ]
 
@@ -174,6 +188,8 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
                     <Routes>
                         <Route path="/" element={<CodePage />} />
                         <Route path="/code" element={<CodePage />} />
+                        <Route path="/story" element={<StoryPage />} />
+                        <Route path="/tests" element={<TestsPage />} />
                     </Routes>
                 </Content>
             </Layout>

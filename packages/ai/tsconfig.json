@@ -1,0 +1,22 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "composite": true,
+        "target": "ES2020",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "types": [
+            "node"
+        ]
+    },
+    "include": [
+        "src"
+    ],
+    "references": [
+        {
+            "path": "../shared"
+        }
+    ]
+}

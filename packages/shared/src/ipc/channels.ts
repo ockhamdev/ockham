@@ -19,6 +19,20 @@ export const IPC = {
     CODESCAN_RUN: 'codescan:run',
     CODESCAN_GET_RESULT: 'codescan:getResult',
     CODESCAN_GET_FILE_SOURCE: 'codescan:getFileSource',
+
+    // Story
+    STORY_CHAT: 'story:chat',
+    STORY_LOAD: 'story:load',
+    STORY_SAVE: 'story:save',
+
+    // Tests
+    TESTS_LOAD: 'tests:load',
+    TESTS_SAVE: 'tests:save',
+    TESTS_LOOKUP_UNIT: 'tests:lookupUnit',
+
+    // AI Config
+    AI_GET_CONFIG: 'ai:getConfig',
+    AI_SET_CONFIG: 'ai:setConfig',
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

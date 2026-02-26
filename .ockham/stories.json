@@ -1,0 +1,169 @@
+[
+  {
+    "id": "019c99ee-5aea-711a-83f3-c5dc0be66c60",
+    "role": "user",
+    "content": "我们聊点啥呢"
+  },
+  {
+    "id": "019c99ee-5aea-711a-83f3-cb5290c9a7fb",
+    "role": "assistant",
+    "content": "Error: Error invoking remote method 'story:chat': Error: AI API key not configured. Please set it in AI Settings.",
+    "loading": false
+  },
+  {
+    "id": "019c99ee-f995-772a-a399-a761c0968f4a",
+    "role": "user",
+    "content": "把 code 栏目改为 codes。Story栏目改为 stories、 再增加一个栏目，取名为 **Tests**。 这里面可以定义测试用例的列表。创建一个测试用例的时候。 要先输入代码文件和指定的行。 然后通过 codescan 要拿到该行所在的语法单元，然后，将该语法单元的相对文件路径和语法单元的类型名称作为 key 来创建测试用例。",
+    "response": {
+      "enrichedText": "## 导航栏目重命名与新增 Tests 栏目\n\n### 1. 栏目重命名\n- 将现有的 **Code** 栏目重命名为 **Codes**\n- 将现有的 **Story** 栏目重命名为 **Stories**\n\n### 2. 新增 Tests 栏目\n在导航中新增一个名为 **Tests** 的栏目，用于管理测试用例列表。\n\n### 3. 创建测试用例的流程\n\n**步骤一：指定代码位置**\n用户在 Tests 栏目中点击「创建测试用例」，系统弹出表单，要求用户输入：\n- 代码文件路径（支持手动输入或文件选择器选择）\n- 目标行号（具体的代码行数）\n\n**步骤二：调用 codescan 解析语法单元**\n系统根据用户输入的文件路径和行号，调用 `codescan` 工具/服务，定位该行所归属的最小语法单元（Syntax Unit，例如：函数、类、方法、代码块等）。\n\n**步骤三：生成测试用例唯一 Key**\n系统以以下两个字段的组合作为该测试用例的唯一标识（Key）：\n- **相对文件路径**：语法单元所在文件相对于项目根目录的路径，例如 `src/utils/parser.ts`\n- **语法单元类型名称**：由 codescan 返回的语法单元类型标识符，例如 `FunctionDeclaration`、`ClassMethod`、`ArrowFunctionExpression` 等\n\n最终 Key 格式建议为：`{relativePath}::{syntaxUnitType}`，例如：\n```\nsrc/utils/parser.ts::FunctionDeclaration\n```\n\n**步骤四：创建测试用例记录**\n以上述 Key 作为标识，在 Tests 列表中创建对应的测试用例条目，后续用户可在该条目下补充测试描述、预期结果等内容。",
+      "issues": [
+        {
+          "text": "code 栏目",
+          "reason": "「栏目」表述模糊，不清楚是指导航 Tab、侧边栏菜单项、页面区块还是数据库列名，需要明确 UI 组件类型。",
+          "suggestion": "改为「导航 Tab 页「Code」」或「侧边栏菜单项「Code」」，明确指出是哪种 UI 元素。"
+        },
+        {
+          "text": "Story栏目",
+          "reason": "同上，「栏目」含义不明确，且与 Code 栏目描述风格不统一（缺少空格）。",
+          "suggestion": "改为「导航 Tab 页「Story」」，与 Code 栏目描述保持一致。"
+        },
+        {
+          "text": "codescan",
+          "reason": "未说明 codescan 的性质：它是一个内部 CLI 工具、第三方库、内部 API 服务还是某个函数？调用方式和返回数据结构完全不清楚。",
+          "suggestion": "明确说明 codescan 的类型、调用方式（如 `codescan(filePath, lineNumber)`）以及返回值的数据结构，特别是语法单元的字段定义。"
+        },
+        {
+          "text": "该行所在的语法单元",
+          "reason": "一行代码可能同时被多个嵌套语法单元包含（如一行代码既在一个 Class 内，也在一个 Method 内），不明确应取「最内层」还是「最外层」语法单元。",
+          "suggestion": "明确说明取「最小/最内层」包含该行的语法单元，例如：「取包含该行的最小粒度语法单元（innermost syntax unit）」。"
+        },
+        {
+          "text": "语法单元的类型名称",
+          "reason": "「类型名称」的格式未定义，不同 AST 解析器对同一语法结构的命名不同（如 `function_declaration` vs `FunctionDeclaration` vs `func`），存在歧义。",
+          "suggestion": "明确指定类型名称的来源和格式，例如「使用 codescan 返回的 AST 节点 type 字段，格式为 PascalCase，如 FunctionDeclaration、ClassMethod」。"
+        },
+        {
+          "text": "相对文件路径",
+          "reason": "「相对」路径的基准目录未定义，不清楚是相对于项目根目录、当前工作目录还是某个配置的 baseDir。",
+          "suggestion": "明确说明相对路径的基准，例如「相对于项目根目录（即 package.json 所在目录）的文件路径」。"
+        },
+        {
+          "text": "将该语法单元的相对文件路径和语法单元的类型名称作为 key 来创建测试用例",
+          "reason": "Key 的拼接格式未定义：两个字段如何组合成一个字符串 Key？是用冒号、斜杠、下划线还是其他分隔符？且未说明 Key 冲突时（同文件同类型多个语法单元）如何处理。",
+          "suggestion": "明确 Key 的格式，例如 `{relativePath}::{syntaxUnitType}`，并说明当同一文件中存在多个相同类型语法单元时的去重或区分策略（如加入行号或单元名称）。"
+        }
+      ],
+      "prompt": "## Feature Implementation Prompt: Rename Tabs & Add Tests Module\n\n### Context\nYou are working on an existing application that has navigation tabs including \"Code\" and \"Story\". The application also integrates a `codescan` utility capable of parsing source files and returning AST (Abstract Syntax Tree) node information for a given file and line number.\n\n---\n\n### Task 1: Rename Existing Navigation Tabs\n- Rename the navigation tab labeled **\"Code\"** to **\"Codes\"**\n- Rename the navigation tab labeled **\"Story\"** to **\"Stories\"**\n- Ensure all internal route names, component names, and references are updated accordingly to maintain consistency.\n\n---\n\n### Task 2: Add a New \"Tests\" Navigation Tab\nCreate a new navigation tab called **\"Tests\"** that renders a test case management page.\n\nThe Tests page must:\n- Display a list of existing test cases\n- Provide a \"Create Test Case\" button/action\n\n---\n\n### Task 3: Implement \"Create Test Case\" Workflow\n\nImplement the following multi-step flow when a user initiates test case creation:\n\n#### Step 1 — Input Form\nRender a form (modal or inline) with two required fields:\n1. **File Path**: The path to the target source code file. Support both manual text input and a file picker. The path will be resolved relative to the project root directory (the directory containing `package.json`).\n2. **Line Number**: An integer input for the specific line number within the file.\n\n#### Step 2 — Invoke codescan\nAfter the user submits the form, call the `codescan` utility with the provided file path and line number:\n```ts\nconst syntaxUnit = await codescan(filePath: string, lineNumber: number)\n// Expected return shape:\n// {\n//   type: string,          // AST node type in PascalCase, e.g. \"FunctionDeclaration\", \"ClassMethod\"\n//   name?: string,         // Optional: the identifier name of the unit\n//   startLine: number,\n//   endLine: number,\n//   relativePath: string   // Relative to project root, e.g. \"src/utils/parser.ts\"\n// }\n```\n- Select the **innermost (smallest)** syntax unit that contains the specified line.\n- If `codescan` fails or returns no result, display a user-friendly error message and halt creation.\n\n#### Step 3 — Generate Unique Key\nConstruct the test case's unique key using the following format:\n```\n{relativePath}::{syntaxUnitType}\n```\nExample: `src/utils/parser.ts::FunctionDeclaration`\n\n**Collision handling**: If a test case with the same key already exists, append the start line number to disambiguate:\n```\n{relativePath}::{syntaxUnitType}::L{startLine}\n```\nExample: `src/utils/parser.ts::FunctionDeclaration::L42`\n\n#### Step 4 — Persist Test Case\nCreate and save a new test case record with at minimum the following fields:\n```ts\n{\n  id: string,                  // Auto-generated UUID\n  key: string,                 // The generated unique key\n  relativePath: string,        // e.g. \"src/utils/parser.ts\"\n  syntaxUnitType: string,      // e.g. \"FunctionDeclaration\"\n  syntaxUnitName?: string,     // e.g. \"parseToken\" (if available from codescan)\n  lineNumber: number,          // The line number the user specified\n  startLine: number,           // From codescan result\n  endLine: number,             // From codescan result\n  createdAt: string,           // ISO timestamp\n  description?: string,        // Optional, user can fill later\n  expectedResult?: string      // Optional, user can fill later\n}\n```\n\n#### Step 5 — Update UI\nAfter successful creation, add the new test case to the Tests list and display a success notification. The list item should show at minimum: the `key`, `syntaxUnitType`, `relativePath`, and `createdAt`.\n\n---\n\n### Acceptance Criteria\n- [ ] \"Code\" tab is renamed to \"Codes\" with no broken routes or references\n- [ ] \"Story\" tab is renamed to \"Stories\" with no broken routes or references\n- [ ] \"Tests\" tab is visible in navigation and navigates to the Tests page\n- [ ] Tests page displays an empty state when no test cases exist\n- [ ] Create Test Case form validates that file path and line number are required\n- [ ] codescan is called correctly and errors are surfaced to the user\n- [ ] Test case key is generated in the correct format\n- [ ] Key collision is handled by appending the line number\n- [ ] Created test case appears in the list immediately after creation"
+    }
+  },
+  {
+    "id": "019c99ee-f995-772a-a399-a8e8111304ad",
+    "role": "assistant",
+    "content": "## 导航栏目重命名与新增 Tests 栏目\n\n### 1. 栏目重命名\n- 将现有的 **Code** 栏目重命名为 **Codes**\n- 将现有的 **Story** 栏目重命名为 **Stories**\n\n### 2. 新增 Tests 栏目\n在导航中新增一个名为 **Tests** 的栏目，用于管理测试用例列表。\n\n### 3. 创建测试用例的流程\n\n**步骤一：指定代码位置**\n用户在 Tests 栏目中点击「创建测试用例」，系统弹出表单，要求用户输入：\n- 代码文件路径（支持手动输入或文件选择器选择）\n- 目标行号（具体的代码行数）\n\n**步骤二：调用 codescan 解析语法单元**\n系统根据用户输入的文件路径和行号，调用 `codescan` 工具/服务，定位该行所归属的最小语法单元（Syntax Unit，例如：函数、类、方法、代码块等）。\n\n**步骤三：生成测试用例唯一 Key**\n系统以以下两个字段的组合作为该测试用例的唯一标识（Key）：\n- **相对文件路径**：语法单元所在文件相对于项目根目录的路径，例如 `src/utils/parser.ts`\n- **语法单元类型名称**：由 codescan 返回的语法单元类型标识符，例如 `FunctionDeclaration`、`ClassMethod`、`ArrowFunctionExpression` 等\n\n最终 Key 格式建议为：`{relativePath}::{syntaxUnitType}`，例如：\n```\nsrc/utils/parser.ts::FunctionDeclaration\n```\n\n**步骤四：创建测试用例记录**\n以上述 Key 作为标识，在 Tests 列表中创建对应的测试用例条目，后续用户可在该条目下补充测试描述、预期结果等内容。",
+    "loading": false,
+    "response": {
+      "enrichedText": "## 导航栏目重命名与新增 Tests 栏目\n\n### 1. 栏目重命名\n- 将现有的 **Code** 栏目重命名为 **Codes**\n- 将现有的 **Story** 栏目重命名为 **Stories**\n\n### 2. 新增 Tests 栏目\n在导航中新增一个名为 **Tests** 的栏目，用于管理测试用例列表。\n\n### 3. 创建测试用例的流程\n\n**步骤一：指定代码位置**\n用户在 Tests 栏目中点击「创建测试用例」，系统弹出表单，要求用户输入：\n- 代码文件路径（支持手动输入或文件选择器选择）\n- 目标行号（具体的代码行数）\n\n**步骤二：调用 codescan 解析语法单元**\n系统根据用户输入的文件路径和行号，调用 `codescan` 工具/服务，定位该行所归属的最小语法单元（Syntax Unit，例如：函数、类、方法、代码块等）。\n\n**步骤三：生成测试用例唯一 Key**\n系统以以下两个字段的组合作为该测试用例的唯一标识（Key）：\n- **相对文件路径**：语法单元所在文件相对于项目根目录的路径，例如 `src/utils/parser.ts`\n- **语法单元类型名称**：由 codescan 返回的语法单元类型标识符，例如 `FunctionDeclaration`、`ClassMethod`、`ArrowFunctionExpression` 等\n\n最终 Key 格式建议为：`{relativePath}::{syntaxUnitType}`，例如：\n```\nsrc/utils/parser.ts::FunctionDeclaration\n```\n\n**步骤四：创建测试用例记录**\n以上述 Key 作为标识，在 Tests 列表中创建对应的测试用例条目，后续用户可在该条目下补充测试描述、预期结果等内容。",
+      "issues": [
+        {
+          "text": "code 栏目",
+          "reason": "「栏目」表述模糊，不清楚是指导航 Tab、侧边栏菜单项、页面区块还是数据库列名，需要明确 UI 组件类型。",
+          "suggestion": "改为「导航 Tab 页「Code」」或「侧边栏菜单项「Code」」，明确指出是哪种 UI 元素。"
+        },
+        {
+          "text": "Story栏目",
+          "reason": "同上，「栏目」含义不明确，且与 Code 栏目描述风格不统一（缺少空格）。",
+          "suggestion": "改为「导航 Tab 页「Story」」，与 Code 栏目描述保持一致。"
+        },
+        {
+          "text": "codescan",
+          "reason": "未说明 codescan 的性质：它是一个内部 CLI 工具、第三方库、内部 API 服务还是某个函数？调用方式和返回数据结构完全不清楚。",
+          "suggestion": "明确说明 codescan 的类型、调用方式（如 `codescan(filePath, lineNumber)`）以及返回值的数据结构，特别是语法单元的字段定义。"
+        },
+        {
+          "text": "该行所在的语法单元",
+          "reason": "一行代码可能同时被多个嵌套语法单元包含（如一行代码既在一个 Class 内，也在一个 Method 内），不明确应取「最内层」还是「最外层」语法单元。",
+          "suggestion": "明确说明取「最小/最内层」包含该行的语法单元，例如：「取包含该行的最小粒度语法单元（innermost syntax unit）」。"
+        },
+        {
+          "text": "语法单元的类型名称",
+          "reason": "「类型名称」的格式未定义，不同 AST 解析器对同一语法结构的命名不同（如 `function_declaration` vs `FunctionDeclaration` vs `func`），存在歧义。",
+          "suggestion": "明确指定类型名称的来源和格式，例如「使用 codescan 返回的 AST 节点 type 字段，格式为 PascalCase，如 FunctionDeclaration、ClassMethod」。"
+        },
+        {
+          "text": "相对文件路径",
+          "reason": "「相对」路径的基准目录未定义，不清楚是相对于项目根目录、当前工作目录还是某个配置的 baseDir。",
+          "suggestion": "明确说明相对路径的基准，例如「相对于项目根目录（即 package.json 所在目录）的文件路径」。"
+        },
+        {
+          "text": "将该语法单元的相对文件路径和语法单元的类型名称作为 key 来创建测试用例",
+          "reason": "Key 的拼接格式未定义：两个字段如何组合成一个字符串 Key？是用冒号、斜杠、下划线还是其他分隔符？且未说明 Key 冲突时（同文件同类型多个语法单元）如何处理。",
+          "suggestion": "明确 Key 的格式，例如 `{relativePath}::{syntaxUnitType}`，并说明当同一文件中存在多个相同类型语法单元时的去重或区分策略（如加入行号或单元名称）。"
+        }
+      ],
+      "prompt": "## Feature Implementation Prompt: Rename Tabs & Add Tests Module\n\n### Context\nYou are working on an existing application that has navigation tabs including \"Code\" and \"Story\". The application also integrates a `codescan` utility capable of parsing source files and returning AST (Abstract Syntax Tree) node information for a given file and line number.\n\n---\n\n### Task 1: Rename Existing Navigation Tabs\n- Rename the navigation tab labeled **\"Code\"** to **\"Codes\"**\n- Rename the navigation tab labeled **\"Story\"** to **\"Stories\"**\n- Ensure all internal route names, component names, and references are updated accordingly to maintain consistency.\n\n---\n\n### Task 2: Add a New \"Tests\" Navigation Tab\nCreate a new navigation tab called **\"Tests\"** that renders a test case management page.\n\nThe Tests page must:\n- Display a list of existing test cases\n- Provide a \"Create Test Case\" button/action\n\n---\n\n### Task 3: Implement \"Create Test Case\" Workflow\n\nImplement the following multi-step flow when a user initiates test case creation:\n\n#### Step 1 — Input Form\nRender a form (modal or inline) with two required fields:\n1. **File Path**: The path to the target source code file. Support both manual text input and a file picker. The path will be resolved relative to the project root directory (the directory containing `package.json`).\n2. **Line Number**: An integer input for the specific line number within the file.\n\n#### Step 2 — Invoke codescan\nAfter the user submits the form, call the `codescan` utility with the provided file path and line number:\n```ts\nconst syntaxUnit = await codescan(filePath: string, lineNumber: number)\n// Expected return shape:\n// {\n//   type: string,          // AST node type in PascalCase, e.g. \"FunctionDeclaration\", \"ClassMethod\"\n//   name?: string,         // Optional: the identifier name of the unit\n//   startLine: number,\n//   endLine: number,\n//   relativePath: string   // Relative to project root, e.g. \"src/utils/parser.ts\"\n// }\n```\n- Select the **innermost (smallest)** syntax unit that contains the specified line.\n- If `codescan` fails or returns no result, display a user-friendly error message and halt creation.\n\n#### Step 3 — Generate Unique Key\nConstruct the test case's unique key using the following format:\n```\n{relativePath}::{syntaxUnitType}\n```\nExample: `src/utils/parser.ts::FunctionDeclaration`\n\n**Collision handling**: If a test case with the same key already exists, append the start line number to disambiguate:\n```\n{relativePath}::{syntaxUnitType}::L{startLine}\n```\nExample: `src/utils/parser.ts::FunctionDeclaration::L42`\n\n#### Step 4 — Persist Test Case\nCreate and save a new test case record with at minimum the following fields:\n```ts\n{\n  id: string,                  // Auto-generated UUID\n  key: string,                 // The generated unique key\n  relativePath: string,        // e.g. \"src/utils/parser.ts\"\n  syntaxUnitType: string,      // e.g. \"FunctionDeclaration\"\n  syntaxUnitName?: string,     // e.g. \"parseToken\" (if available from codescan)\n  lineNumber: number,          // The line number the user specified\n  startLine: number,           // From codescan result\n  endLine: number,             // From codescan result\n  createdAt: string,           // ISO timestamp\n  description?: string,        // Optional, user can fill later\n  expectedResult?: string      // Optional, user can fill later\n}\n```\n\n#### Step 5 — Update UI\nAfter successful creation, add the new test case to the Tests list and display a success notification. The list item should show at minimum: the `key`, `syntaxUnitType`, `relativePath`, and `createdAt`.\n\n---\n\n### Acceptance Criteria\n- [ ] \"Code\" tab is renamed to \"Codes\" with no broken routes or references\n- [ ] \"Story\" tab is renamed to \"Stories\" with no broken routes or references\n- [ ] \"Tests\" tab is visible in navigation and navigates to the Tests page\n- [ ] Tests page displays an empty state when no test cases exist\n- [ ] Create Test Case form validates that file path and line number are required\n- [ ] codescan is called correctly and errors are surfaced to the user\n- [ ] Test case key is generated in the correct format\n- [ ] Key collision is handled by appending the line number\n- [ ] Created test case appears in the list immediately after creation"
+    }
+  },
+  {
+    "id": "019c99fc-a8d3-756d-a430-da67501ea930",
+    "role": "user",
+    "content": "Tests 点击 test 要弹出 test 的编辑窗口。",
+    "response": {
+      "enrichedText": "## Feature: Test Item Edit Modal\n\n**Overview:**\nIn the Tests section (e.g., a list or table view of test items), when a user clicks on a specific test entry, an edit modal/dialog window should appear, allowing the user to view and modify the details of that selected test.\n\n**Trigger:**\n- The user is on the Tests page/section.\n- The user clicks on a test item (e.g., a row, a card, or the test name link).\n\n**Expected Behavior:**\n1. Clicking a test item triggers an edit modal to open.\n2. The modal is pre-populated with the existing data of the selected test.\n3. The user can edit the relevant fields within the modal.\n4. The modal provides at least a \"Save\" and a \"Cancel\" (or close) action.\n5. On save, the updated data is persisted and the list reflects the changes.\n6. On cancel/close, no changes are applied.\n\n**Scope:**\n- Applies to all test items in the Tests list/view.\n- The modal should be reusable for any selected test.",
+      "issues": [
+        {
+          "text": "Tests",
+          "reason": "It is unclear what 'Tests' refers to — is it a page, a module, a list, or a table? The context is not defined.",
+          "suggestion": "Specify the context, e.g., 'On the Tests management page, which displays a list/table of test items...'"
+        },
+        {
+          "text": "点击 test",
+          "reason": "Ambiguous — it is unclear what exactly the user clicks. Is it the test row, the test name, a button, or an icon?",
+          "suggestion": "Clarify the clickable element, e.g., 'When the user clicks on the test row' or 'When the user clicks on the test name link'."
+        },
+        {
+          "text": "要弹出 test 的编辑窗口",
+          "reason": "The edit window is not described in detail. It is unknown what fields are editable, what actions the modal contains (Save/Cancel), and whether it is a modal dialog or a separate page.",
+          "suggestion": "Describe the modal's content and behavior, e.g., 'A modal dialog should appear pre-filled with the test's current data, allowing the user to edit fields such as [name, description, etc.], with Save and Cancel buttons.'"
+        },
+        {
+          "text": "Tests 点击 test 要弹出 test 的编辑窗口。",
+          "reason": "The description mixes Chinese and English in a way that makes it difficult to determine precise technical requirements. No mention of error handling, permissions, or what happens after saving.",
+          "suggestion": "Write the full requirement in one language and include edge cases: what happens if the save fails, who has permission to edit, and whether the list auto-refreshes after saving."
+        }
+      ],
+      "prompt": "You are implementing a feature for a web application.\n\n## Feature: Click-to-Edit Modal for Test Items\n\n### Context\nThere is a Tests section in the application that displays a list or table of test items. Each test item has associated data (e.g., name, description, configuration, status).\n\n### Requirement\nWhen a user clicks on any test item (row, card, or name link) in the Tests list, an **edit modal dialog** must open.\n\n### Modal Behavior\n1. **Trigger:** User clicks on a test item in the Tests list/table.\n2. **Open:** A modal/dialog appears overlaying the current page (do not navigate away).\n3. **Pre-fill:** The modal is pre-populated with the selected test's current field values.\n4. **Editable Fields:** Include all relevant fields for a test (e.g., test name, description, configuration options — adjust based on the data model).\n5. **Actions:**\n   - **Save button:** Validates input, submits updated data to the backend via API (e.g., `PUT /api/tests/:id`), closes the modal on success, and refreshes/updates the test item in the list.\n   - **Cancel / Close button (X):** Closes the modal without saving any changes.\n6. **Error Handling:** If the save request fails, display an inline error message inside the modal without closing it.\n7. **Loading State:** Show a loading indicator on the Save button while the request is in progress.\n8. **Permissions:** Only users with edit permissions should be able to trigger the modal; others should see a read-only view or have the click action disabled.\n\n### Technical Notes\n- Use a reusable Modal component so the same component can be used for creating and editing tests.\n- The modal should be accessible (focus trap, ESC key to close, ARIA attributes).\n- Ensure the Tests list reflects updated data after a successful save (optimistic update or re-fetch).\n\n### Acceptance Criteria\n- [ ] Clicking a test item opens the edit modal.\n- [ ] Modal is pre-filled with the correct test data.\n- [ ] Saving updates the test and reflects changes in the list.\n- [ ] Cancelling or pressing ESC closes the modal with no changes.\n- [ ] Error messages are shown inside the modal on failure.\n- [ ] Modal is fully accessible."
+    }
+  },
+  {
+    "id": "019c99fc-a8d4-7194-b85e-d22522e24e58",
+    "role": "assistant",
+    "content": "## Feature: Test Item Edit Modal\n\n**Overview:**\nIn the Tests section (e.g., a list or table view of test items), when a user clicks on a specific test entry, an edit modal/dialog window should appear, allowing the user to view and modify the details of that selected test.\n\n**Trigger:**\n- The user is on the Tests page/section.\n- The user clicks on a test item (e.g., a row, a card, or the test name link).\n\n**Expected Behavior:**\n1. Clicking a test item triggers an edit modal to open.\n2. The modal is pre-populated with the existing data of the selected test.\n3. The user can edit the relevant fields within the modal.\n4. The modal provides at least a \"Save\" and a \"Cancel\" (or close) action.\n5. On save, the updated data is persisted and the list reflects the changes.\n6. On cancel/close, no changes are applied.\n\n**Scope:**\n- Applies to all test items in the Tests list/view.\n- The modal should be reusable for any selected test.",
+    "loading": false,
+    "response": {
+      "enrichedText": "## Feature: Test Item Edit Modal\n\n**Overview:**\nIn the Tests section (e.g., a list or table view of test items), when a user clicks on a specific test entry, an edit modal/dialog window should appear, allowing the user to view and modify the details of that selected test.\n\n**Trigger:**\n- The user is on the Tests page/section.\n- The user clicks on a test item (e.g., a row, a card, or the test name link).\n\n**Expected Behavior:**\n1. Clicking a test item triggers an edit modal to open.\n2. The modal is pre-populated with the existing data of the selected test.\n3. The user can edit the relevant fields within the modal.\n4. The modal provides at least a \"Save\" and a \"Cancel\" (or close) action.\n5. On save, the updated data is persisted and the list reflects the changes.\n6. On cancel/close, no changes are applied.\n\n**Scope:**\n- Applies to all test items in the Tests list/view.\n- The modal should be reusable for any selected test.",
+      "issues": [
+        {
+          "text": "Tests",
+          "reason": "It is unclear what 'Tests' refers to — is it a page, a module, a list, or a table? The context is not defined.",
+          "suggestion": "Specify the context, e.g., 'On the Tests management page, which displays a list/table of test items...'"
+        },
+        {
+          "text": "点击 test",
+          "reason": "Ambiguous — it is unclear what exactly the user clicks. Is it the test row, the test name, a button, or an icon?",
+          "suggestion": "Clarify the clickable element, e.g., 'When the user clicks on the test row' or 'When the user clicks on the test name link'."
+        },
+        {
+          "text": "要弹出 test 的编辑窗口",
+          "reason": "The edit window is not described in detail. It is unknown what fields are editable, what actions the modal contains (Save/Cancel), and whether it is a modal dialog or a separate page.",
+          "suggestion": "Describe the modal's content and behavior, e.g., 'A modal dialog should appear pre-filled with the test's current data, allowing the user to edit fields such as [name, description, etc.], with Save and Cancel buttons.'"
+        },
+        {
+          "text": "Tests 点击 test 要弹出 test 的编辑窗口。",
+          "reason": "The description mixes Chinese and English in a way that makes it difficult to determine precise technical requirements. No mention of error handling, permissions, or what happens after saving.",
+          "suggestion": "Write the full requirement in one language and include edge cases: what happens if the save fails, who has permission to edit, and whether the list auto-refreshes after saving."
+        }
+      ],
+      "prompt": "You are implementing a feature for a web application.\n\n## Feature: Click-to-Edit Modal for Test Items\n\n### Context\nThere is a Tests section in the application that displays a list or table of test items. Each test item has associated data (e.g., name, description, configuration, status).\n\n### Requirement\nWhen a user clicks on any test item (row, card, or name link) in the Tests list, an **edit modal dialog** must open.\n\n### Modal Behavior\n1. **Trigger:** User clicks on a test item in the Tests list/table.\n2. **Open:** A modal/dialog appears overlaying the current page (do not navigate away).\n3. **Pre-fill:** The modal is pre-populated with the selected test's current field values.\n4. **Editable Fields:** Include all relevant fields for a test (e.g., test name, description, configuration options — adjust based on the data model).\n5. **Actions:**\n   - **Save button:** Validates input, submits updated data to the backend via API (e.g., `PUT /api/tests/:id`), closes the modal on success, and refreshes/updates the test item in the list.\n   - **Cancel / Close button (X):** Closes the modal without saving any changes.\n6. **Error Handling:** If the save request fails, display an inline error message inside the modal without closing it.\n7. **Loading State:** Show a loading indicator on the Save button while the request is in progress.\n8. **Permissions:** Only users with edit permissions should be able to trigger the modal; others should see a read-only view or have the click action disabled.\n\n### Technical Notes\n- Use a reusable Modal component so the same component can be used for creating and editing tests.\n- The modal should be accessible (focus trap, ESC key to close, ARIA attributes).\n- Ensure the Tests list reflects updated data after a successful save (optimistic update or re-fetch).\n\n### Acceptance Criteria\n- [ ] Clicking a test item opens the edit modal.\n- [ ] Modal is pre-filled with the correct test data.\n- [ ] Saving updates the test and reflects changes in the list.\n- [ ] Cancelling or pressing ESC closes the modal with no changes.\n- [ ] Error messages are shown inside the modal on failure.\n- [ ] Modal is fully accessible."
+    }
+  }
+]

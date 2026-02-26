@@ -13,6 +13,7 @@
         "lint:fix": "eslint src/ --fix"
     },
     "dependencies": {
+        "@ockham/ai": "workspace:*",
         "@ockham/codescan": "workspace:*",
         "@ockham/shared": "workspace:*",
         "uuid": "^11.1.0"
