@@ -167,9 +167,9 @@ export function registerTestsHandlers(): void {
         }
     )
 
-    // Sync: search workspace test files for [id] patterns
+    // Link: search workspace test files for [id] patterns
     ipcMain.handle(
-        IPC.TESTS_SYNC,
+        IPC.TESTS_LINK,
         async (event, testIds: string[]): Promise<Record<string, { filePath: string; line: number }>> => {
             const ws = windowManager.getWorkspace(event.sender.id)
             if (!ws) return {}

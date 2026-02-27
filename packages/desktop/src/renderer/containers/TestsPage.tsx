@@ -25,7 +25,7 @@ import {
     WarningOutlined,
     EditOutlined,
     ThunderboltOutlined,
-    SyncOutlined,
+    LinkOutlined,
     CheckCircleOutlined,
     MinusCircleOutlined,
     FileOutlined,
@@ -42,7 +42,7 @@ declare global {
             load(): Promise<TestCase[]>
             save(items: TestCase[]): Promise<void>
             lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
-            sync(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+            link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
         }
         specTestsApi: {
             load(): Promise<SpecTest[]>
@@ -306,28 +306,28 @@ function TestsPage() {
     const [matchCandidates, setMatchCandidates] = useState<SyntaxUnit[]>([])
     const [showMatchModal, setShowMatchModal] = useState(false)
 
-    // Sync state
-    const [syncResults, setSyncResults] = useState<Record<string, { filePath: string; line: number }>>({})
-    const [syncing, setSyncing] = useState(false)
+    // Link state
+    const [linkResults, setLinkResults] = useState<Record<string, { filePath: string; line: number }>>({})
+    const [linking, setLinking] = useState(false)
 
-    const handleSync = useCallback(async () => {
-        // sync is only available on testsApi (unit tests)
-        const syncFn = (api as { sync?: (ids: string[]) => Promise<Record<string, { filePath: string; line: number }>> }).sync
-        if (!syncFn) {
-            message.warning('Sync is not supported for this category')
+    const handleLink = useCallback(async () => {
+        // link is only available on testsApi (unit tests)
+        const linkFn = (api as { link?: (ids: string[]) => Promise<Record<string, { filePath: string; line: number }>> }).link
+        if (!linkFn) {
+            message.warning('Link is not supported for this category')
             return
         }
-        setSyncing(true)
+        setLinking(true)
         try {
             const ids = tests.map((t) => t.id)
-            const results = await syncFn(ids)
-            setSyncResults(results)
+            const results = await linkFn(ids)
+            setLinkResults(results)
             const matched = Object.keys(results).length
-            message.success(`Sync complete: ${matched}/${ids.length} matched`)
+            message.success(`Link complete: ${matched}/${ids.length} linked`)
         } catch {
-            message.error('Sync failed')
+            message.error('Link failed')
         }
-        setSyncing(false)
+        setLinking(false)
     }, [tests, api])
 
     // Load persisted test cases on mount
@@ -583,7 +583,7 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
             key: 'status',
             width: '10%',
             render: (_: unknown, record: TestCase) => {
-                const match = syncResults[record.id]
+                const match = linkResults[record.id]
                 if (!match) {
                     return <Tag icon={<MinusCircleOutlined />} color="default">No match</Tag>
                 }
@@ -598,7 +598,7 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
                                 message.success(`Copied: ${match.filePath}`)
                             }}
                         >
-                            Matched
+                            Linked
                         </Tag>
                     </Tooltip>
                 )
@@ -609,10 +609,10 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
             key: 'action',
             width: '10%',
             render: (_: unknown, record: TestCase) => {
-                const match = syncResults[record.id]
+                const match = linkResults[record.id]
                 return (
                     <Space size="small">
-                        <Tooltip title={match ? `${match.filePath}:${match.line}` : 'Run Sync first'}>
+                        <Tooltip title={match ? `${match.filePath}:${match.line}` : 'Run Link first'}>
                             <Button
                                 type="text"
                                 icon={<FileOutlined />}
@@ -673,11 +673,11 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
                 </Title>
                 <Space>
                     <Button
-                        icon={<SyncOutlined spin={syncing} />}
-                        onClick={handleSync}
-                        loading={syncing}
+                        icon={<LinkOutlined spin={linking} />}
+                        onClick={handleLink}
+                        loading={linking}
                     >
-                        Sync
+                        Link
                     </Button>
                     <Button
                         type="primary"

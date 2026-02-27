@@ -210,4 +210,54 @@ export function registerSpecTestsHandlers(): void {
             'utf-8'
         )
     })
+
+    // Link: search workspace test files for [id] patterns
+    ipcMain.handle(
+        IPC.SPEC_TESTS_LINK,
+        async (event, testIds: string[]): Promise<Record<string, { filePath: string; line: number }>> => {
+            const ws = windowManager.getWorkspace(event.sender.id)
+            if (!ws) return {}
+
+            const result: Record<string, { filePath: string; line: number }> = {}
+            const idSet = new Set(testIds)
+
+            function findTestFiles(dir: string, relativeTo: string): string[] {
+                const files: string[] = []
+                try {
+                    const entries = fs.readdirSync(dir, { withFileTypes: true })
+                    for (const entry of entries) {
+                        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === '.ockham') continue
+                        const fullPath = path.join(dir, entry.name)
+                        if (entry.isDirectory()) {
+                            files.push(...findTestFiles(fullPath, relativeTo))
+                        } else if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+                            files.push(path.relative(relativeTo, fullPath))
+                        }
+                    }
+                } catch {
+                    // ignore
+                }
+                return files
+            }
+
+            const testFiles = findTestFiles(ws, ws)
+
+            for (const relPath of testFiles) {
+                try {
+                    const content = fs.readFileSync(path.join(ws, relPath), 'utf-8')
+                    const lines = content.split('\n')
+                    for (let i = 0; i < lines.length; i++) {
+                        const match = lines[i].match(/\[([a-f0-9]{40})\]/)
+                        if (match && idSet.has(match[1])) {
+                            result[match[1]] = { filePath: relPath, line: i + 1 }
+                        }
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+
+            return result
+        }
+    )
 }

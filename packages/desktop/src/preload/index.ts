@@ -66,7 +66,7 @@ const testsApi: TestsAPI = {
     save: (items: TestCase[]) => ipcRenderer.invoke(IPC.TESTS_SAVE, items),
     lookupUnit: (filePath: string, keyword: string) =>
         ipcRenderer.invoke(IPC.TESTS_LOOKUP_UNIT, filePath, keyword),
-    sync: (testIds: string[]) => ipcRenderer.invoke(IPC.TESTS_SYNC, testIds),
+    link: (testIds: string[]) => ipcRenderer.invoke(IPC.TESTS_LINK, testIds),
 }
 
 /**
@@ -79,6 +79,7 @@ const specTestsApi: SpecTestsAPI = {
         ipcRenderer.invoke(IPC.SPEC_TESTS_LOOKUP_UNIT, filePath, keyword),
     loadGroups: () => ipcRenderer.invoke(IPC.SPEC_TESTS_LOAD_GROUPS),
     saveGroups: (groups: SpecTestGroup[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE_GROUPS, groups),
+    link: (testIds: string[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_LINK, testIds),
 }
 
 // Expose typed APIs to renderer

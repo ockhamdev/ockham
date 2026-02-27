@@ -73,7 +73,7 @@ export interface TestsAPI {
     /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
     lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
     /** Sync: search workspace for test files matching [id] patterns */
-    sync(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+    link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
 }
 
 /**
@@ -90,4 +90,6 @@ export interface SpecTestsAPI {
     loadGroups(): Promise<SpecTestGroup[]>
     /** Save spec test groups */
     saveGroups(groups: SpecTestGroup[]): Promise<void>
+    /** Link: search workspace for test files matching [id] patterns */
+    link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
 }

@@ -29,7 +29,7 @@ export const IPC = {
     TESTS_LOAD: 'tests:load',
     TESTS_SAVE: 'tests:save',
     TESTS_LOOKUP_UNIT: 'tests:lookupUnit',
-    TESTS_SYNC: 'tests:sync',
+    TESTS_LINK: 'tests:link',
 
     // Spec Tests
     SPEC_TESTS_LOAD: 'specTests:load',
@@ -37,6 +37,7 @@ export const IPC = {
     SPEC_TESTS_LOOKUP_UNIT: 'specTests:lookupUnit',
     SPEC_TESTS_LOAD_GROUPS: 'specTests:loadGroups',
     SPEC_TESTS_SAVE_GROUPS: 'specTests:saveGroups',
+    SPEC_TESTS_LINK: 'specTests:link',
 
     // AI Config
     AI_GET_CONFIG: 'ai:getConfig',

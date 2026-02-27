@@ -15,6 +15,7 @@ import {
     Spin,
     Tree,
     TreeSelect,
+    Tooltip,
 } from 'antd'
 import {
     PlusOutlined,
@@ -25,6 +26,9 @@ import {
     MinusCircleOutlined,
     EyeOutlined,
     CopyOutlined,
+    LinkOutlined,
+    CheckCircleOutlined,
+    FileOutlined,
 } from '@ant-design/icons'
 import type { DataNode } from 'antd/es/tree'
 import type { SpecTest, SpecTestUnit, SpecTestGroup, SyntaxUnit } from '@ockham/shared'
@@ -821,6 +825,25 @@ export function SpecTestsPage() {
     const [showPromptModal, setShowPromptModal] = useState(false)
     const [generatingPrompt, setGeneratingPrompt] = useState<string | null>(null)
 
+    // Link state
+    const [linkResults, setLinkResults] = useState<Record<string, { filePath: string; line: number }>>({})
+    const [linking, setLinking] = useState(false)
+    const [viewTestFile, setViewTestFile] = useState<{ path: string; line: number; source: string } | null>(null)
+
+    const handleLink = useCallback(async () => {
+        setLinking(true)
+        try {
+            const ids = tests.map((t) => t.id)
+            const results = await window.specTestsApi.link(ids)
+            setLinkResults(results)
+            const matched = Object.keys(results).length
+            message.success(`Link complete: ${matched}/${ids.length} linked`)
+        } catch {
+            message.error('Link failed')
+        }
+        setLinking(false)
+    }, [tests])
+
     // Load data
     useEffect(() => {
         Promise.all([
@@ -1038,35 +1061,81 @@ ${snippets.join('\n\n')}
             ellipsis: true,
         },
         {
+            title: 'Status',
+            key: 'status',
+            width: '10%',
+            render: (_: unknown, record: SpecTest) => {
+                const match = linkResults[record.id]
+                if (!match) {
+                    return <Tag icon={<MinusCircleOutlined />} color="default">No match</Tag>
+                }
+                return (
+                    <Tooltip title={`${match.filePath}:${match.line}`}>
+                        <Tag
+                            icon={<CheckCircleOutlined />}
+                            color="success"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                                navigator.clipboard.writeText(match.filePath)
+                                message.success(`Copied: ${match.filePath}`)
+                            }}
+                        >
+                            Linked
+                        </Tag>
+                    </Tooltip>
+                )
+            },
+        },
+        {
             title: 'Action',
             key: 'action',
-            width: '20%',
-            render: (_: unknown, record: SpecTest) => (
-                <Space size="small">
-                    <Button
-                        type="text"
-                        icon={<ThunderboltOutlined />}
-                        size="small"
-                        loading={generatingPrompt === record.id}
-                        onClick={() => handleGeneratePrompt(record)}
-                        title="Generate test prompt"
-                    />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditTest(record)}
-                    />
-                    <Popconfirm
-                        title="Delete this spec test?"
-                        onConfirm={() => handleDeleteTest(record.id)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button type="text" danger icon={<DeleteOutlined />} size="small" />
-                    </Popconfirm>
-                </Space>
-            ),
+            width: '15%',
+            render: (_: unknown, record: SpecTest) => {
+                const match = linkResults[record.id]
+                return (
+                    <Space size="small">
+                        <Tooltip title={match ? `${match.filePath}:${match.line}` : 'Run Link first'}>
+                            <Button
+                                type="text"
+                                icon={<FileOutlined />}
+                                size="small"
+                                disabled={!match}
+                                onClick={async () => {
+                                    if (!match) return
+                                    try {
+                                        const src = await window.codescanApi.getFileSource(match.filePath)
+                                        setViewTestFile({ path: match.filePath, line: match.line, source: src || '// File not found' })
+                                    } catch {
+                                        message.error('Failed to load test file')
+                                    }
+                                }}
+                            />
+                        </Tooltip>
+                        <Button
+                            type="text"
+                            icon={<ThunderboltOutlined />}
+                            size="small"
+                            loading={generatingPrompt === record.id}
+                            onClick={() => handleGeneratePrompt(record)}
+                            title="Generate test prompt"
+                        />
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditTest(record)}
+                        />
+                        <Popconfirm
+                            title="Delete this spec test?"
+                            onConfirm={() => handleDeleteTest(record.id)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+                        </Popconfirm>
+                    </Space>
+                )
+            },
         },
     ]
 
@@ -1140,13 +1209,22 @@ ${snippets.join('\n\n')}
                             </Text>
                         )}
                     </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleNewTest}
-                    >
-                        New Spec Test
-                    </Button>
+                    <Space>
+                        <Button
+                            icon={<LinkOutlined />}
+                            onClick={handleLink}
+                            loading={linking}
+                        >
+                            Link
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleNewTest}
+                        >
+                            New Spec Test
+                        </Button>
+                    </Space>
                 </div>
 
                 {/* Table */}
