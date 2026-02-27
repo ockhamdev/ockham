@@ -70,6 +70,20 @@ export interface TestsAPI {
     load(): Promise<TestCase[]>
     /** Save test cases */
     save(items: TestCase[]): Promise<void>
-    /** Lookup syntax unit at file+line from last scan result */
-    lookupUnit(filePath: string, line: number): Promise<SyntaxUnit | null>
+    /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
+    lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
+    /** Sync: search workspace for test files matching [id] patterns */
+    sync(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+}
+
+/**
+ * SpecTestsAPI — exposed to renderer via contextBridge.
+ */
+export interface SpecTestsAPI {
+    /** Load persisted spec test cases */
+    load(): Promise<TestCase[]>
+    /** Save spec test cases */
+    save(items: TestCase[]): Promise<void>
+    /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
+    lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
 }

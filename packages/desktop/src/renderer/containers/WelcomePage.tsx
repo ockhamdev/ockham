@@ -31,7 +31,7 @@ export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: W
                     Welcome to Ockham
                 </Title>
                 <Paragraph type="secondary" style={{ fontSize: 16 }}>
-                    Open a workspace to get started
+                    Test-driven delivery, powered by AI collaboration
                 </Paragraph>
                 <Button
                     type="primary"

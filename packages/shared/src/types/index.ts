@@ -114,18 +114,12 @@ export interface StoryResponse {
 // ── Tests types ───────────────────────────────────────
 
 export interface TestCase {
-    /** UUID v7 */
+    /** SHA-1 hash of path — also used as the storage filename */
     id: string
-    /** Composite key: relativePath::syntaxUnitType */
-    key: string
-    /** Relative file path */
-    filePath: string
-    /** Line number used to locate the syntax unit */
-    line: number
-    /** Syntax unit type, e.g. 'FunctionDeclaration' */
-    unitType: string
-    /** Syntax unit name, e.g. 'handleSend' */
-    unitName: string
+    /** Original user input: "filePath keyword", e.g. "src/App.tsx const CodePage" */
+    path: string
+    /** SHA-1 content hash of the syntax unit */
+    contentHash: string
     /** Test case description */
     description: string
     /** Created timestamp */

@@ -128,7 +128,54 @@ function extractUnit(
     const sha1 = crypto.createHash('sha1').update(nodeText).digest('hex')
 
     const name = getNodeName(node) || '<anonymous>'
-    const type = ts.SyntaxKind[node.kind]
+    // Explicit map to avoid ts.SyntaxKind reverse-lookup aliasing
+    // (e.g. SyntaxKind[243] may return "FirstStatement" instead of "VariableStatement")
+    const kindToType: Record<number, string> = {
+        [ts.SyntaxKind.ClassDeclaration]: 'Class',
+        [ts.SyntaxKind.FunctionDeclaration]: 'Function',
+        [ts.SyntaxKind.MethodDeclaration]: 'Method',
+        [ts.SyntaxKind.PropertyDeclaration]: 'Property',
+        [ts.SyntaxKind.Constructor]: 'Constructor',
+        [ts.SyntaxKind.GetAccessor]: 'Getter',
+        [ts.SyntaxKind.SetAccessor]: 'Setter',
+        [ts.SyntaxKind.InterfaceDeclaration]: 'Interface',
+        [ts.SyntaxKind.TypeAliasDeclaration]: 'Type',
+        [ts.SyntaxKind.EnumDeclaration]: 'Enum',
+        [ts.SyntaxKind.EnumMember]: 'EnumItem',
+        [ts.SyntaxKind.VariableStatement]: 'Variable',
+        [ts.SyntaxKind.ImportDeclaration]: 'Import',
+        [ts.SyntaxKind.ExportDeclaration]: 'Export',
+        [ts.SyntaxKind.ArrowFunction]: 'ArrowFunction',
+    }
+
+    // For ExportAssignment (export default expr), resolve the inner expression type
+    if (ts.isExportAssignment(node)) {
+        const exprKindToType: Record<number, string> = {
+            [ts.SyntaxKind.CallExpression]: 'ExportDefault CallExpression',
+            [ts.SyntaxKind.ArrowFunction]: 'ExportDefault ArrowFunction',
+            [ts.SyntaxKind.FunctionExpression]: 'ExportDefault Function',
+            [ts.SyntaxKind.ClassExpression]: 'ExportDefault Class',
+            [ts.SyntaxKind.ObjectLiteralExpression]: 'ExportDefault ObjectLiteral',
+            [ts.SyntaxKind.ArrayLiteralExpression]: 'ExportDefault ArrayLiteral',
+            [ts.SyntaxKind.Identifier]: 'ExportDefault Identifier',
+            [ts.SyntaxKind.NewExpression]: 'ExportDefault NewExpression',
+            [ts.SyntaxKind.AsExpression]: 'ExportDefault AsExpression',
+        }
+        const type = exprKindToType[node.expression.kind]
+            ?? `ExportDefault ${ts.SyntaxKind[node.expression.kind]}`
+        return {
+            type,
+            name,
+            filePath: relativePath,
+            startLine: start.line + 1,
+            startColumn: start.character + 1,
+            endLine: end.line + 1,
+            endColumn: end.character + 1,
+            sha1,
+        }
+    }
+
+    const type = kindToType[node.kind] ?? ts.SyntaxKind[node.kind]
 
     return {
         type,

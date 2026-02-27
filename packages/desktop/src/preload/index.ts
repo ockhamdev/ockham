@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@ockham/shared'
-import type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI } from '@ockham/shared'
+import type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI, SpecTestsAPI } from '@ockham/shared'
 import type { AddNotePayload, UpdateNotePayload, StoryMessage, AiConfig, TestCase } from '@ockham/shared'
 
 /**
@@ -64,8 +64,19 @@ const aiConfigApi: AiConfigAPI = {
 const testsApi: TestsAPI = {
     load: () => ipcRenderer.invoke(IPC.TESTS_LOAD),
     save: (items: TestCase[]) => ipcRenderer.invoke(IPC.TESTS_SAVE, items),
-    lookupUnit: (filePath: string, line: number) =>
-        ipcRenderer.invoke(IPC.TESTS_LOOKUP_UNIT, filePath, line),
+    lookupUnit: (filePath: string, keyword: string) =>
+        ipcRenderer.invoke(IPC.TESTS_LOOKUP_UNIT, filePath, keyword),
+    sync: (testIds: string[]) => ipcRenderer.invoke(IPC.TESTS_SYNC, testIds),
+}
+
+/**
+ * Spec Tests API — exposed as window.specTestsApi
+ */
+const specTestsApi: SpecTestsAPI = {
+    load: () => ipcRenderer.invoke(IPC.SPEC_TESTS_LOAD),
+    save: (items: TestCase[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE, items),
+    lookupUnit: (filePath: string, keyword: string) =>
+        ipcRenderer.invoke(IPC.SPEC_TESTS_LOOKUP_UNIT, filePath, keyword),
 }
 
 // Expose typed APIs to renderer
@@ -75,3 +86,4 @@ contextBridge.exposeInMainWorld('codescanApi', codescanApi)
 contextBridge.exposeInMainWorld('storyApi', storyApi)
 contextBridge.exposeInMainWorld('aiConfigApi', aiConfigApi)
 contextBridge.exposeInMainWorld('testsApi', testsApi)
+contextBridge.exposeInMainWorld('specTestsApi', specTestsApi)

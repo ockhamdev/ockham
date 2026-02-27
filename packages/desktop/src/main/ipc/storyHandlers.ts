@@ -5,6 +5,7 @@ import { callChat } from '@ockham/ai'
 import { windowManager } from '../windowManager'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 
 const STORY_SYSTEM_PROMPT = `You are a product-focused AI assistant that helps users write clear, complete feature descriptions.
 
@@ -29,14 +30,14 @@ Rules:
 - Always respond with valid JSON only, no extra text.`
 
 /**
- * Get AI config file path for the current workspace.
+ * Get AI config file path — stored globally at ~/.ockham/ai.json
  */
-function getAiConfigPath(workspacePath: string): string {
-    return path.join(workspacePath, '.ockham', 'ai.json')
+function getAiConfigPath(): string {
+    return path.join(os.homedir(), '.ockham', 'ai.json')
 }
 
-function loadAiConfig(workspacePath: string): AiConfig {
-    const configPath = getAiConfigPath(workspacePath)
+function loadAiConfig(): AiConfig {
+    const configPath = getAiConfigPath()
     try {
         if (fs.existsSync(configPath)) {
             return JSON.parse(fs.readFileSync(configPath, 'utf-8'))
@@ -47,8 +48,8 @@ function loadAiConfig(workspacePath: string): AiConfig {
     return { apiKey: '' }
 }
 
-function saveAiConfig(workspacePath: string, config: AiConfig): void {
-    const configPath = getAiConfigPath(workspacePath)
+function saveAiConfig(config: AiConfig): void {
+    const configPath = getAiConfigPath()
     const dir = path.dirname(configPath)
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true })
@@ -64,7 +65,7 @@ export function registerStoryHandlers(): void {
         const ws = windowManager.getWorkspace(event.sender.id)
         if (!ws) throw new Error('No workspace selected')
 
-        const config = loadAiConfig(ws)
+        const config = loadAiConfig()
         if (!config.apiKey) {
             throw new Error('AI API key not configured. Please set it in AI Settings.')
         }
@@ -93,16 +94,12 @@ export function registerStoryHandlers(): void {
         }
     })
 
-    ipcMain.handle(IPC.AI_GET_CONFIG, async (event) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) return { apiKey: '' }
-        return loadAiConfig(ws)
+    ipcMain.handle(IPC.AI_GET_CONFIG, async () => {
+        return loadAiConfig()
     })
 
-    ipcMain.handle(IPC.AI_SET_CONFIG, async (event, config: AiConfig) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) throw new Error('No workspace selected')
-        saveAiConfig(ws, config)
+    ipcMain.handle(IPC.AI_SET_CONFIG, async (_event, config: AiConfig) => {
+        saveAiConfig(config)
     })
 
     // ── Story persistence ────────────────────────────

@@ -1,5 +1,5 @@
 // Core API
-export { runCodeScan, loadScanResult } from './codeScan'
+export { runCodeScan, scanSingleFile } from './codeScan'
 
 // Types
 export type {

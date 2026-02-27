@@ -25,10 +25,16 @@ export const IPC = {
     STORY_LOAD: 'story:load',
     STORY_SAVE: 'story:save',
 
-    // Tests
+    // Tests (Unit)
     TESTS_LOAD: 'tests:load',
     TESTS_SAVE: 'tests:save',
     TESTS_LOOKUP_UNIT: 'tests:lookupUnit',
+    TESTS_SYNC: 'tests:sync',
+
+    // Spec Tests
+    SPEC_TESTS_LOAD: 'specTests:load',
+    SPEC_TESTS_SAVE: 'specTests:save',
+    SPEC_TESTS_LOOKUP_UNIT: 'specTests:lookupUnit',
 
     // AI Config
     AI_GET_CONFIG: 'ai:getConfig',

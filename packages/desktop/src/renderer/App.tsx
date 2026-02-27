@@ -13,13 +13,14 @@ import {
     DesktopOutlined,
     SwapOutlined,
     FolderOutlined,
+    FileProtectOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
 import { WelcomePage } from './containers/WelcomePage'
 import { CodePage } from './containers/CodePage'
 import { StoryPage } from './containers/StoryPage'
-import { TestsPage } from './containers/TestsPage'
+import { UnitTestsPage, SpecTestsPage } from './containers/TestsPage'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
@@ -46,6 +47,16 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
 
     const menuItems = [
         {
+            key: '/unit-tests',
+            icon: <ExperimentOutlined />,
+            label: 'Unit Tests',
+        },
+        {
+            key: '/spec-tests',
+            icon: <FileProtectOutlined />,
+            label: 'Spec Tests',
+        },
+        {
             key: '/story',
             icon: <BookOutlined />,
             label: 'Stories',
@@ -54,11 +65,6 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
             key: '/code',
             icon: <CodeOutlined />,
             label: 'Codes',
-        },
-        {
-            key: '/tests',
-            icon: <ExperimentOutlined />,
-            label: 'Tests',
         },
     ]
 
@@ -139,6 +145,8 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
                 style={{
                     marginLeft: collapsed ? 80 : 220,
                     transition: 'margin-left 0.2s',
+                    height: '100vh',
+                    overflow: 'hidden',
                 }}
             >
                 <Header
@@ -148,6 +156,7 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
                         alignItems: 'center',
                         height: 44,
                         lineHeight: '44px',
+                        flexShrink: 0,
                         // @ts-expect-error WebkitAppRegion is an Electron-specific CSS property
                         WebkitAppRegion: 'drag',
                     }}
@@ -184,12 +193,13 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
                         />
                     </div>
                 </Header>
-                <Content style={{ overflow: 'auto' }}>
+                <Content style={{ flex: 1, overflow: 'auto' }}>
                     <Routes>
                         <Route path="/" element={<CodePage />} />
                         <Route path="/code" element={<CodePage />} />
                         <Route path="/story" element={<StoryPage />} />
-                        <Route path="/tests" element={<TestsPage />} />
+                        <Route path="/unit-tests" element={<UnitTestsPage />} />
+                        <Route path="/spec-tests" element={<SpecTestsPage />} />
                     </Routes>
                 </Content>
             </Layout>

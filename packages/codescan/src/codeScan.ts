@@ -4,10 +4,6 @@ import { collectFiles } from './fileCollector'
 import { typescriptScanner } from './scanners/typescriptScanner'
 import type { ScanResult, FileEntry, LanguageScanner } from './types'
 
-const TMP_DIR = '/tmp/ockham-codescan'
-const RESULT_FILE = 'codescan-result.json'
-const DATA_DIR = '.ockham'
-
 /** All registered language scanners */
 const scanners: LanguageScanner[] = [typescriptScanner]
 
@@ -27,25 +23,17 @@ function buildExtensionMap(): Map<string, LanguageScanner> {
 /**
  * Run a full code scan on the given workspace.
  *
- * 1. Clean /tmp/ockham-codescan/ (recreate)
- * 2. Collect all files respecting .gitignore
- * 3. For each file: match extension → pick scanner → extract syntax units
- * 4. Compute per-file line coverage
- * 5. Save intermediate result to /tmp
- * 6. Save final result to {workspace}/.ockham/codescan-result.json
+ * 1. Collect all files respecting .gitignore
+ * 2. For each file: match extension → pick scanner → extract syntax units
+ * 3. Compute per-file line coverage
+ * 4. Return result in memory (no file persistence)
  */
 export function runCodeScan(workspacePath: string): ScanResult {
-    // 1. Clean tmp directory
-    if (fs.existsSync(TMP_DIR)) {
-        fs.rmSync(TMP_DIR, { recursive: true, force: true })
-    }
-    fs.mkdirSync(TMP_DIR, { recursive: true })
-
-    // 2. Collect files
+    // 1. Collect files
     const collectedFiles = collectFiles(workspacePath)
     const extensionMap = buildExtensionMap()
 
-    // 3 & 4. Scan each file
+    // 2 & 3. Scan each file
     const files: FileEntry[] = collectedFiles.map((file) => {
         const ext = path.extname(file.relativePath).slice(1).toLowerCase()
         const scanner = extensionMap.get(ext)
@@ -79,41 +67,58 @@ export function runCodeScan(workspacePath: string): ScanResult {
         }
     })
 
-    // Build result
-    const result: ScanResult = {
+    // Build and return result (in-memory only)
+    return {
         workspacePath,
         scannedAt: new Date().toISOString(),
         totalFiles: files.length,
         files,
     }
-
-    // 5. Save to tmp (intermediate)
-    const tmpResultPath = path.join(TMP_DIR, RESULT_FILE)
-    fs.writeFileSync(tmpResultPath, JSON.stringify(result, null, 2), 'utf-8')
-
-    // 6. Save to workspace/.ockham/ (final)
-    const ockhamDir = path.join(workspacePath, DATA_DIR)
-    if (!fs.existsSync(ockhamDir)) {
-        fs.mkdirSync(ockhamDir, { recursive: true })
-    }
-    const finalResultPath = path.join(ockhamDir, RESULT_FILE)
-    fs.writeFileSync(finalResultPath, JSON.stringify(result, null, 2), 'utf-8')
-
-    return result
 }
 
 /**
- * Load the last scan result from a workspace.
+ * Scan a single file and return its FileEntry.
+ *
+ * @param workspacePath - Absolute path of the workspace root
+ * @param relativePath  - File path relative to workspace root
+ * @returns FileEntry for the file, or null if the file doesn't exist or has no scanner
  */
-export function loadScanResult(workspacePath: string): ScanResult | null {
-    const resultPath = path.join(workspacePath, DATA_DIR, RESULT_FILE)
-    if (!fs.existsSync(resultPath)) {
+export function scanSingleFile(workspacePath: string, relativePath: string): FileEntry | null {
+    const absolutePath = path.join(workspacePath, relativePath)
+
+    if (!fs.existsSync(absolutePath)) {
         return null
     }
-    try {
-        const raw = fs.readFileSync(resultPath, 'utf-8')
-        return JSON.parse(raw) as ScanResult
-    } catch {
-        return null
+
+    const ext = path.extname(relativePath).slice(1).toLowerCase()
+    const extensionMap = buildExtensionMap()
+    const scanner = extensionMap.get(ext)
+
+    const source = fs.readFileSync(absolutePath, 'utf-8')
+    const totalLines = source.split('\n').length
+
+    if (!scanner) {
+        return {
+            filePath: relativePath,
+            totalLines,
+            coveredLines: [],
+            coveragePercent: 0,
+            syntaxUnits: [],
+        }
+    }
+
+    const output = scanner.scan(absolutePath, relativePath, source)
+
+    const coveragePercent =
+        totalLines > 0
+            ? Math.round((output.coveredLines.length / totalLines) * 10000) / 100
+            : 0
+
+    return {
+        filePath: relativePath,
+        totalLines,
+        coveredLines: output.coveredLines,
+        coveragePercent,
+        syntaxUnits: output.syntaxUnits,
     }
 }

@@ -28,7 +28,6 @@ function parseTestCaseMd(content: string): TestCase | null {
 
     if (!fields.id) return null
 
-    // Derive path from filePath+keyword for backward compatibility
     const testPath = fields.path || (fields.filePath && fields.keyword ? `${fields.filePath} ${fields.keyword}` : '')
     if (!testPath) return null
 
@@ -55,19 +54,19 @@ function serializeTestCaseMd(tc: TestCase): string {
 }
 
 /**
- * Get the directory for storing unit test cases.
+ * Get the directory for storing spec test cases.
  */
 function getTestsDir(ws: string): string {
-    return path.join(ws, '.ockham', 'unit-tests')
+    return path.join(ws, '.ockham', 'spec-tests')
 }
 
 /**
- * Register Unit Tests IPC handlers.
+ * Register Spec Tests IPC handlers.
  * Each test case is stored as an individual markdown file.
  */
-export function registerTestsHandlers(): void {
-    // Load all test cases from .ockham/unit-tests/*.md
-    ipcMain.handle(IPC.TESTS_LOAD, async (event): Promise<TestCase[]> => {
+export function registerSpecTestsHandlers(): void {
+    // Load all test cases from .ockham/spec-tests/*.md
+    ipcMain.handle(IPC.SPEC_TESTS_LOAD, async (event): Promise<TestCase[]> => {
         const ws = windowManager.getWorkspace(event.sender.id)
         if (!ws) return []
         const dir = getTestsDir(ws)
@@ -86,8 +85,8 @@ export function registerTestsHandlers(): void {
         }
     })
 
-    // Save a single test case as .ockham/unit-tests/{hash}.md
-    ipcMain.handle(IPC.TESTS_SAVE, async (event, items: TestCase[]) => {
+    // Save test cases as .ockham/spec-tests/{hash}.md
+    ipcMain.handle(IPC.SPEC_TESTS_SAVE, async (event, items: TestCase[]) => {
         const ws = windowManager.getWorkspace(event.sender.id)
         if (!ws) throw new Error('No workspace selected')
         const dir = getTestsDir(ws)
@@ -95,8 +94,6 @@ export function registerTestsHandlers(): void {
             fs.mkdirSync(dir, { recursive: true })
         }
 
-        // Write each test case as a separate file
-        // First, remove any existing files that are no longer in the list
         const existingFiles = fs.existsSync(dir)
             ? fs.readdirSync(dir).filter((f) => f.endsWith('.md'))
             : []
@@ -109,7 +106,6 @@ export function registerTestsHandlers(): void {
             }
         }
 
-        // Write all current test cases
         for (const tc of items) {
             const fileName = `${tc.id}.md`
             fs.writeFileSync(
@@ -120,18 +116,16 @@ export function registerTestsHandlers(): void {
         }
     })
 
-    // Lookup syntax units by keyword — scans the single file on-the-fly
+    // Lookup syntax units by keyword
     ipcMain.handle(
-        IPC.TESTS_LOOKUP_UNIT,
+        IPC.SPEC_TESTS_LOOKUP_UNIT,
         async (event, filePath: string, keyword: string): Promise<SyntaxUnit[]> => {
             const ws = windowManager.getWorkspace(event.sender.id)
             if (!ws) return []
 
-            // Scan this single file
             const fileEntry = codescanStore.scanFile(ws, filePath)
             if (!fileEntry) return []
 
-            // Tokenize keyword for matching (e.g. "const name" → ["const", "name"])
             const tokens = keyword.toLowerCase().split(/\s+/).filter(Boolean)
             if (tokens.length === 0) return []
 
@@ -148,74 +142,18 @@ export function registerTestsHandlers(): void {
                 export: [], // skip 'export' — it's a modifier, not a type
             }
 
-            // Match syntax units: every token must appear in the type, name,
-            // OR be a known JS keyword that maps to the unit's type
             return fileEntry.syntaxUnits.filter((u) => {
                 const haystack = `${u.type} ${u.name}`.toLowerCase()
                 return tokens.every((t) => {
-                    // Direct match in type or name
                     if (haystack.includes(t)) return true
-                    // Keyword alias match
                     const aliases = keywordTypeAliases[t]
                     if (aliases) {
-                        if (aliases.length === 0) return true // skip token (e.g. 'export')
+                        if (aliases.length === 0) return true
                         return aliases.some((a) => u.type.toLowerCase().includes(a))
                     }
                     return false
                 })
             })
-        }
-    )
-
-    // Sync: search workspace test files for [id] patterns
-    ipcMain.handle(
-        IPC.TESTS_SYNC,
-        async (event, testIds: string[]): Promise<Record<string, { filePath: string; line: number }>> => {
-            const ws = windowManager.getWorkspace(event.sender.id)
-            if (!ws) return {}
-
-            const result: Record<string, { filePath: string; line: number }> = {}
-            const idSet = new Set(testIds)
-
-            // Recursively find test files
-            function findTestFiles(dir: string, relativeTo: string): string[] {
-                const files: string[] = []
-                try {
-                    const entries = fs.readdirSync(dir, { withFileTypes: true })
-                    for (const entry of entries) {
-                        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === '.ockham') continue
-                        const fullPath = path.join(dir, entry.name)
-                        if (entry.isDirectory()) {
-                            files.push(...findTestFiles(fullPath, relativeTo))
-                        } else if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(entry.name)) {
-                            files.push(path.relative(relativeTo, fullPath))
-                        }
-                    }
-                } catch {
-                    // ignore
-                }
-                return files
-            }
-
-            const testFiles = findTestFiles(ws, ws)
-
-            for (const relPath of testFiles) {
-                try {
-                    const content = fs.readFileSync(path.join(ws, relPath), 'utf-8')
-                    const lines = content.split('\n')
-                    for (let i = 0; i < lines.length; i++) {
-                        // Match [id] in describe blocks
-                        const match = lines[i].match(/\[([a-f0-9]{40})\]/)
-                        if (match && idSet.has(match[1])) {
-                            result[match[1]] = { filePath: relPath, line: i + 1 }
-                        }
-                    }
-                } catch {
-                    // ignore
-                }
-            }
-
-            return result
         }
     )
 }

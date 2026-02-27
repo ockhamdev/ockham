@@ -7,6 +7,7 @@ import { registerNotesHandlers } from './ipc/notesHandlers'
 import { registerCodescanHandlers } from './ipc/codescanHandlers'
 import { registerStoryHandlers } from './ipc/storyHandlers'
 import { registerTestsHandlers } from './ipc/testsHandlers'
+import { registerSpecTestsHandlers } from './ipc/specTestsHandlers'
 import path from 'path'
 
 /**
@@ -175,6 +176,7 @@ app.whenReady().then(() => {
     registerCodescanHandlers()
     registerStoryHandlers()
     registerTestsHandlers()
+    registerSpecTestsHandlers()
 
     // Build menus
     buildAppMenu()
