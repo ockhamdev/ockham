@@ -125,3 +125,47 @@ export interface TestCase {
     /** Created timestamp */
     createdAt: string
 }
+
+// ── Spec Tests types ─────────────────────────────────
+
+/** A single syntax-unit reference within a spec test */
+export interface SpecTestUnit {
+    /** Lookup path: "filepath keyword", e.g. "src/App.tsx CodePage" */
+    path: string
+    /** Resolved unit name (from lookup) */
+    unitName: string
+    /** Resolved unit type (from lookup) */
+    unitType: string
+    /** Resolved file path (from lookup) */
+    unitFilePath: string
+    /** Content hash of the resolved syntax unit */
+    contentHash: string
+}
+
+/** A spec test — references multiple syntax units */
+export interface SpecTest {
+    /** sha1(uuid) — unique ID */
+    id: string
+    /** Test title */
+    title: string
+    /** Group key this test belongs to */
+    group: string
+    /** Test description */
+    description: string
+    /** Referenced syntax units */
+    units: SpecTestUnit[]
+    /** Created timestamp */
+    createdAt: string
+}
+
+/** A spec test group with optional preconditions */
+export interface SpecTestGroup {
+    /** Group key (unique identifier) */
+    key: string
+    /** Group display name */
+    name: string
+    /** Parent group key (undefined = root level) */
+    parentKey?: string
+    /** Precondition description, e.g. "unified login required" */
+    preconditions: string
+}

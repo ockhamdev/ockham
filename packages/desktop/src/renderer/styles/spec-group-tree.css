@@ -1,0 +1,56 @@
+/*
+ * Spec Tests Group Tree — compact sidebar styling
+ */
+
+/* Remove default tree background and tighten spacing */
+.spec-group-tree.ant-tree {
+    background: transparent;
+}
+
+.spec-group-tree .ant-tree-treenode {
+    padding: 0 !important;
+    margin-bottom: 2px;
+}
+
+.spec-group-tree .ant-tree-node-content-wrapper {
+    padding: 4px 4px 4px 4px !important;
+    border-radius: 6px;
+    flex: 1;
+    min-width: 0;
+    transition: background 0.15s;
+}
+
+.spec-group-tree .ant-tree-node-content-wrapper:hover {
+    background: var(--ant-color-bg-text-hover) !important;
+}
+
+.spec-group-tree .ant-tree-node-selected .ant-tree-node-content-wrapper,
+.spec-group-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+    background: var(--ant-color-primary-bg) !important;
+}
+
+/* Hide icon column since we use inline icons */
+.spec-group-tree .ant-tree-iconEle {
+    display: none !important;
+}
+
+/* Hide action buttons by default, show on hover */
+.spec-group-tree .group-actions {
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.spec-group-tree .ant-tree-treenode:hover .group-actions {
+    opacity: 1;
+}
+
+/* Indent lines */
+.spec-group-tree .ant-tree-indent-unit {
+    width: 16px;
+}
+
+/* Switcher icon smaller */
+.spec-group-tree .ant-tree-switcher {
+    width: 20px !important;
+    line-height: 28px;
+}

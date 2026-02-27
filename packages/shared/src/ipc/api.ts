@@ -1,6 +1,6 @@
 import type { Note } from '../types'
 import type { AddNotePayload, UpdateNotePayload } from './payloads'
-import type { ScanResult, AiConfig, StoryMessage, StoryResponse, TestCase, SyntaxUnit } from '../types'
+import type { ScanResult, AiConfig, StoryMessage, StoryResponse, TestCase, SyntaxUnit, SpecTest, SpecTestGroup } from '../types'
 
 /**
  * WorkspaceAPI — exposed to renderer via contextBridge.
@@ -80,10 +80,14 @@ export interface TestsAPI {
  * SpecTestsAPI — exposed to renderer via contextBridge.
  */
 export interface SpecTestsAPI {
-    /** Load persisted spec test cases */
-    load(): Promise<TestCase[]>
-    /** Save spec test cases */
-    save(items: TestCase[]): Promise<void>
+    /** Load persisted spec tests */
+    load(): Promise<SpecTest[]>
+    /** Save spec tests */
+    save(items: SpecTest[]): Promise<void>
     /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
     lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
+    /** Load spec test groups */
+    loadGroups(): Promise<SpecTestGroup[]>
+    /** Save spec test groups */
+    saveGroups(groups: SpecTestGroup[]): Promise<void>
 }

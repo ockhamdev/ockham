@@ -4,6 +4,7 @@ export type {
     ObjectMappingResult, AnalysisResult, ScanProgressEvent,
     StoryMessage, StoryIssue, StoryResponse,
     TestCase,
+    SpecTest, SpecTestUnit, SpecTestGroup,
 } from './types'
 
 // IPC

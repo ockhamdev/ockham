@@ -30,7 +30,9 @@ import {
     MinusCircleOutlined,
     FileOutlined,
 } from '@ant-design/icons'
-import type { TestCase, SyntaxUnit } from '@ockham/shared'
+import type { TestCase, SyntaxUnit, SpecTest, SpecTestGroup } from '@ockham/shared'
+import { SourceViewer } from '../components/SourceViewer'
+import { MarkdownViewer } from '../components/MarkdownViewer'
 
 const { Title, Text } = Typography
 
@@ -43,9 +45,11 @@ declare global {
             sync(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
         }
         specTestsApi: {
-            load(): Promise<TestCase[]>
-            save(items: TestCase[]): Promise<void>
+            load(): Promise<SpecTest[]>
+            save(items: SpecTest[]): Promise<void>
             lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
+            loadGroups(): Promise<SpecTestGroup[]>
+            saveGroups(groups: SpecTestGroup[]): Promise<void>
         }
     }
 }
@@ -131,7 +135,6 @@ function TestDrawer({
     const [description, setDescription] = useState(initialDescription)
     const [fileSource, setFileSource] = useState<string | null>(null)
     const [strippedHash, setStrippedHash] = useState('')
-    const highlightRef = useRef<HTMLTableRowElement>(null)
 
     // Reset description when drawer opens
     useEffect(() => {
@@ -165,15 +168,6 @@ function TestDrawer({
         return () => { cancelled = true }
     }, [open, unit])
 
-    // Scroll highlighted area into view
-    useEffect(() => {
-        if (fileSource && highlightRef.current) {
-            setTimeout(() => {
-                highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }, 100)
-        }
-    }, [fileSource])
-
     const handleSave = useCallback(async () => {
         const testPath = `${unit.filePath} ${keyword}`
         const id = await computeSha1(testPath)
@@ -192,8 +186,6 @@ function TestDrawer({
         setDescription('')
         onCancel()
     }, [onCancel])
-
-    const sourceLines = fileSource?.split('\n') ?? []
 
     return (
         <Drawer
@@ -231,51 +223,13 @@ function TestDrawer({
                             <Text type="secondary" style={{ marginLeft: 8 }}>Loading source...</Text>
                         </div>
                     ) : (
-                        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                            <tbody>
-                                {sourceLines.map((lineText, idx) => {
-                                    const lineNum = idx + 1
-                                    const isHighlighted =
-                                        lineNum >= unit.startLine && lineNum <= unit.endLine
-                                    return (
-                                        <tr
-                                            key={lineNum}
-                                            ref={lineNum === unit.startLine ? highlightRef : undefined}
-                                            style={{
-                                                background: isHighlighted
-                                                    ? 'rgba(22, 119, 255, 0.12)'
-                                                    : 'transparent',
-                                            }}
-                                        >
-                                            <td
-                                                style={{
-                                                    padding: '0 12px 0 16px',
-                                                    textAlign: 'right',
-                                                    color: 'var(--ant-color-text-quaternary)',
-                                                    userSelect: 'none',
-                                                    whiteSpace: 'nowrap',
-                                                    fontSize: 12,
-                                                    width: 1,
-                                                    borderRight: isHighlighted
-                                                        ? '3px solid var(--ant-color-primary)'
-                                                        : '3px solid transparent',
-                                                }}
-                                            >
-                                                {lineNum}
-                                            </td>
-                                            <td
-                                                style={{
-                                                    padding: '0 16px',
-                                                    whiteSpace: 'pre',
-                                                }}
-                                            >
-                                                {lineText}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
+                        <SourceViewer
+                            source={fileSource}
+                            filePath={unit.filePath}
+                            highlightStart={unit.startLine}
+                            highlightEnd={unit.endLine}
+                            style={{ height: '100%' }}
+                        />
                     )}
                 </div>
 
@@ -309,8 +263,8 @@ function TestDrawer({
                             />
                         </Form.Item>
 
-                        {/* Description */}
-                        <Form.Item label="Description" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                        {/* Requirements */}
+                        <Form.Item label="Requirements" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
                             <TextArea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
@@ -326,18 +280,9 @@ function TestDrawer({
 }
 
 // ── Main TestsPage ────────────────────────────────────
-type TestCategory = 'unit' | 'spec'
 
-function getCategoryConfig(category: TestCategory) {
-    const configs = {
-        unit: { title: 'Unit Tests', api: window.testsApi },
-        spec: { title: 'Spec Tests', api: window.specTestsApi },
-    }
-    return configs[category]
-}
-
-function TestsPage({ category }: { category: TestCategory }) {
-    const { title: pageTitle, api } = getCategoryConfig(category)
+function TestsPage() {
+    const api = window.testsApi
     const [tests, setTests] = useState<TestCase[]>([])
     const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -556,7 +501,7 @@ Please write a unit test for the following code using **Vitest** framework.
 - **File Path**: \`${filePath}\`
 - **Keyword**: \`${kw}\`
 
-### Test Description
+### Requirements
 ${tc.description}
 
 ### Implementation Source
@@ -627,7 +572,7 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
             },
         },
         {
-            title: 'Description',
+            title: 'Requirements',
             dataIndex: 'description',
             key: 'description',
             width: '20%',
@@ -724,18 +669,16 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
                 }}
             >
                 <Title level={3} style={{ margin: 0 }}>
-                    {pageTitle}
+                    Unit Tests
                 </Title>
                 <Space>
-                    {category === 'unit' && (
-                        <Button
-                            icon={<SyncOutlined spin={syncing} />}
-                            onClick={handleSync}
-                            loading={syncing}
-                        >
-                            Sync
-                        </Button>
-                    )}
+                    <Button
+                        icon={<SyncOutlined spin={syncing} />}
+                        onClick={handleSync}
+                        loading={syncing}
+                    >
+                        Sync
+                    </Button>
                     <Button
                         type="primary"
                         icon={<PlusOutlined />}
@@ -882,44 +825,57 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
                 />
             )}
 
-            {/* Prompt Modal */}
-            <Modal
+            {/* Prompt Drawer */}
+            <Drawer
                 title="Generated Test Prompt"
                 open={showPromptModal}
-                onCancel={() => setShowPromptModal(false)}
-                width={800}
+                onClose={() => setShowPromptModal(false)}
+                width={680}
                 footer={
-                    <Space>
-                        <Button onClick={() => setShowPromptModal(false)}>Close</Button>
+                    <div style={{ textAlign: 'right' }}>
                         <Button
                             type="primary"
                             onClick={() => {
-                                navigator.clipboard.writeText(promptText)
+                                const custom = (document.getElementById('unit-custom-prompt') as HTMLTextAreaElement)?.value?.trim()
+                                const full = custom ? `${promptText}\n\n${custom}` : promptText
+                                navigator.clipboard.writeText(full)
                                 message.success('Prompt copied to clipboard')
                             }}
                         >
                             Copy Prompt
                         </Button>
-                    </Space>
+                    </div>
                 }
             >
-                <pre
-                    style={{
-                        background: 'var(--ant-color-bg-layout)',
-                        borderRadius: 8,
-                        padding: 16,
-                        fontSize: 13,
-                        lineHeight: 1.6,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        maxHeight: '60vh',
-                        overflow: 'auto',
-                        border: '1px solid var(--ant-color-border)',
-                    }}
-                >
-                    {promptText}
-                </pre>
-            </Modal>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+                    <div style={{ flex: 1, overflow: 'auto' }}>
+                        <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                            Generated Prompt
+                        </Text>
+                        <MarkdownViewer
+                            content={promptText}
+                            style={{
+                                background: 'var(--ant-color-bg-layout)',
+                                borderRadius: 8,
+                                padding: 16,
+                                overflow: 'auto',
+                                border: '1px solid var(--ant-color-border)',
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                            Additional Instructions (optional)
+                        </Text>
+                        <TextArea
+                            id="unit-custom-prompt"
+                            placeholder="Add extra instructions here, e.g. specific edge cases, constraints..."
+                            rows={1}
+                            style={{ fontSize: 13 }}
+                        />
+                    </div>
+                </div>
+            </Drawer>
 
             {/* View matched test file — Drawer with highlighted code */}
             <Drawer
@@ -1016,9 +972,5 @@ describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
 }
 
 export function UnitTestsPage() {
-    return <TestsPage category="unit" />
-}
-
-export function SpecTestsPage() {
-    return <TestsPage category="spec" />
+    return <TestsPage />
 }

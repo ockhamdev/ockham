@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@ockham/shared'
 import type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI, SpecTestsAPI } from '@ockham/shared'
-import type { AddNotePayload, UpdateNotePayload, StoryMessage, AiConfig, TestCase } from '@ockham/shared'
+import type { AddNotePayload, UpdateNotePayload, StoryMessage, AiConfig, TestCase, SpecTest, SpecTestGroup } from '@ockham/shared'
 
 /**
  * Workspace API — exposed as window.workspaceApi
@@ -74,9 +74,11 @@ const testsApi: TestsAPI = {
  */
 const specTestsApi: SpecTestsAPI = {
     load: () => ipcRenderer.invoke(IPC.SPEC_TESTS_LOAD),
-    save: (items: TestCase[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE, items),
+    save: (items: SpecTest[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE, items),
     lookupUnit: (filePath: string, keyword: string) =>
         ipcRenderer.invoke(IPC.SPEC_TESTS_LOOKUP_UNIT, filePath, keyword),
+    loadGroups: () => ipcRenderer.invoke(IPC.SPEC_TESTS_LOAD_GROUPS),
+    saveGroups: (groups: SpecTestGroup[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE_GROUPS, groups),
 }
 
 // Expose typed APIs to renderer

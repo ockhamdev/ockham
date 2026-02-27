@@ -93,3 +93,13 @@ body,
 .ant-list-item:hover {
   background: var(--bg-secondary);
 }
+
+/* Ensure modals/drawers are not blocked by Electron drag region */
+.ant-drawer,
+.ant-drawer-mask,
+.ant-drawer-content-wrapper,
+.ant-modal-root,
+.ant-modal-mask,
+.ant-modal-wrap {
+  -webkit-app-region: no-drag;
+}

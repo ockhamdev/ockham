@@ -14,13 +14,16 @@ import {
     SwapOutlined,
     FolderOutlined,
     FileProtectOutlined,
+    DashboardOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
 import { WelcomePage } from './containers/WelcomePage'
+import { DashboardPage } from './containers/DashboardPage'
 import { CodePage } from './containers/CodePage'
 import { StoryPage } from './containers/StoryPage'
-import { UnitTestsPage, SpecTestsPage } from './containers/TestsPage'
+import { UnitTestsPage } from './containers/TestsPage'
+import { SpecTestsPage } from './containers/SpecTestsPage'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
@@ -47,14 +50,9 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
 
     const menuItems = [
         {
-            key: '/unit-tests',
-            icon: <ExperimentOutlined />,
-            label: 'Unit Tests',
-        },
-        {
-            key: '/spec-tests',
-            icon: <FileProtectOutlined />,
-            label: 'Spec Tests',
+            key: '/',
+            icon: <DashboardOutlined />,
+            label: 'Dashboard',
         },
         {
             key: '/story',
@@ -65,6 +63,16 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
             key: '/code',
             icon: <CodeOutlined />,
             label: 'Codes',
+        },
+        {
+            key: '/unit-tests',
+            icon: <ExperimentOutlined />,
+            label: 'Unit Tests',
+        },
+        {
+            key: '/spec-tests',
+            icon: <FileProtectOutlined />,
+            label: 'Spec Tests',
         },
     ]
 
@@ -195,7 +203,7 @@ function AppLayout({ currentWorkspace, openWorkspace }: AppLayoutProps) {
                 </Header>
                 <Content style={{ flex: 1, overflow: 'auto' }}>
                     <Routes>
-                        <Route path="/" element={<CodePage />} />
+                        <Route path="/" element={<DashboardPage />} />
                         <Route path="/code" element={<CodePage />} />
                         <Route path="/story" element={<StoryPage />} />
                         <Route path="/unit-tests" element={<UnitTestsPage />} />
