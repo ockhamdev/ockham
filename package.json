@@ -11,7 +11,8 @@
     "build:unpack": "pnpm build && pnpm --filter @ockham/desktop exec electron-builder --dir",
     "build:mac": "pnpm build && pnpm --filter @ockham/desktop exec electron-builder --mac",
     "lint": "pnpm -r lint",
-    "lint:fix": "pnpm -r lint:fix"
+    "lint:fix": "pnpm -r lint:fix",
+    "dev:homepage": "pnpm --filter @ockham/homepage dev"
   },
   "engines": {
     "node": ">=18.0.0",
