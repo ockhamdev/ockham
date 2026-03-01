@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 const RELEASE_URL = "https://github.com/ockhamdev/desktop/releases/latest";
 
@@ -41,9 +42,9 @@ export default function Home() {
       {/* ── Nav ── */}
       <nav className="nav">
         <div className="container nav-inner">
-          <a href="/" className="nav-logo">
+          <Link href="/" className="nav-logo">
             Ock<span>ham</span>
-          </a>
+          </Link>
           <div className="nav-links">
             <a href="#features" className="nav-link">
               Features
