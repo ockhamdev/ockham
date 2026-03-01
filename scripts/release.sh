@@ -5,12 +5,17 @@ set -euo pipefail
 # Reads version from @ockham/desktop/package.json, builds the app,
 # and creates a GitHub release with DMG and ZIP artifacts on
 # ockhamdev/desktop repo.
+#
+# The desktop repo is cloned locally at external/desktop. Before
+# creating a release, the script updates its README with version
+# info and pushes, ensuring the repo is non-empty.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DESKTOP_DIR="$ROOT_DIR/packages/desktop"
 RELEASE_DIR="$DESKTOP_DIR/release"
 RELEASE_REPO="ockhamdev/desktop"
+EXTERNAL_DESKTOP="$ROOT_DIR/external/desktop"
 
 # 1. Read version
 VERSION=$(node -e "console.log(require('$DESKTOP_DIR/package.json').version)")
@@ -52,14 +57,22 @@ if ! gh auth status &> /dev/null; then
 fi
 echo "✅ GitHub CLI authenticated"
 
-# 6. Check if tag already exists on the release repo
+# 6. Check external/desktop repo exists
+if [[ ! -d "$EXTERNAL_DESKTOP/.git" ]]; then
+    echo "❌ external/desktop repo not found. Clone it first:"
+    echo "   git clone git@github.com:$RELEASE_REPO.git external/desktop"
+    exit 1
+fi
+echo "✅ external/desktop repo exists"
+
+# 7. Check if tag already exists on the release repo
 if gh release view "$TAG" --repo "$RELEASE_REPO" &> /dev/null; then
     echo "⚠️  Release $TAG already exists on $RELEASE_REPO. Delete it first or bump the version."
     echo "   To delete: gh release delete $TAG --repo $RELEASE_REPO --yes"
     exit 1
 fi
 
-# 7. Check if artifacts already exist (skip build if so)
+# 8. Check if artifacts already exist (skip build if so)
 ARM_DMG="$DIST_DIR/Ockham-${VERSION}-arm64.dmg"
 X64_DMG="$DIST_DIR/Ockham-${VERSION}-x64.dmg"
 
@@ -83,7 +96,7 @@ else
     (cd "$DESKTOP_DIR" && npx electron-builder --mac)
 fi
 
-# 8. Collect artifacts
+# 9. Collect artifacts
 echo ""
 echo "📋 Artifacts:"
 ARTIFACTS=()
@@ -100,7 +113,68 @@ if [[ ${#ARTIFACTS[@]} -eq 0 ]]; then
     exit 1
 fi
 
-# 9. Create GitHub release on ockhamdev/desktop
+# 10. Update external/desktop repo README and push
+echo ""
+echo "📝 Updating external/desktop README..."
+
+RELEASE_DATE=$(date +%Y-%m-%d)
+
+cat > "$EXTERNAL_DESKTOP/README.md" <<EOF
+# Ockham Desktop
+
+Test-driven delivery, powered by AI collaboration.
+
+## Latest Release: $TAG
+
+**Released:** $RELEASE_DATE
+
+### Downloads
+
+| Platform | File |
+|----------|------|
+| Apple Silicon (M1/M2/M3/M4) | \`Ockham-${VERSION}-arm64.dmg\` |
+| Intel Mac (x86_64) | \`Ockham-${VERSION}-x64.dmg\` |
+
+### Installation
+
+1. Download the DMG for your Mac architecture from the [Releases](https://github.com/$RELEASE_REPO/releases/latest) page
+2. Open the DMG and drag Ockham to Applications
+3. On first launch: right-click → Open (required for unsigned apps)
+
+## Changelog
+
+### $TAG ($RELEASE_DATE)
+
+- Initial release
+
+---
+
+© $(date +%Y) Ockham. All rights reserved.
+EOF
+
+cd "$EXTERNAL_DESKTOP"
+
+# Determine default branch (main or master), init if needed
+DEFAULT_BRANCH=$(git config init.defaultBranch 2>/dev/null || echo "main")
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+if [[ -z "$CURRENT_BRANCH" ]]; then
+    # No commits yet — initial setup
+    git checkout -b "$DEFAULT_BRANCH" 2>/dev/null || true
+fi
+
+git add -A
+if git diff --cached --quiet; then
+    echo "   No changes to commit"
+else
+    git commit -m "Release $TAG"
+    git push origin HEAD
+    echo "✅ external/desktop updated and pushed"
+fi
+
+cd "$ROOT_DIR"
+
+# 11. Create GitHub release on ockhamdev/desktop
 echo ""
 echo "🏷️  Creating GitHub release $TAG on $RELEASE_REPO..."
 gh release create "$TAG" \
@@ -109,8 +183,10 @@ gh release create "$TAG" \
     --title "Ockham $TAG" \
     --notes "## Ockham $TAG
 
+**Released:** $RELEASE_DATE
+
 ### Downloads
-- **Apple Silicon (M1/M2/M3)**: \`Ockham-${VERSION}-arm64.dmg\`
+- **Apple Silicon (M1/M2/M3/M4)**: \`Ockham-${VERSION}-arm64.dmg\`
 - **Intel Mac**: \`Ockham-${VERSION}-x64.dmg\`
 
 ### Installation
