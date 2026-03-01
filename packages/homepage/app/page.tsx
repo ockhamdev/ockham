@@ -1,7 +1,50 @@
 import React from "react";
 import Link from "next/link";
 
-const RELEASE_URL = "https://github.com/ockhamdev/desktop/releases/latest";
+const RELEASE_REPO = "ockhamdev/desktop";
+const RELEASES_URL = `https://github.com/${RELEASE_REPO}/releases/latest`;
+const API_URL = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
+
+interface ReleaseAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+interface ReleaseInfo {
+  tag_name: string;
+  assets: ReleaseAsset[];
+}
+
+async function getLatestRelease(): Promise<{
+  version: string;
+  armDmg: string;
+  x64Dmg: string;
+  fallback: string;
+} | null> {
+  try {
+    const res = await fetch(API_URL, {
+      next: { revalidate: 300 }, // revalidate every 5 minutes
+      headers: { Accept: "application/vnd.github.v3+json" },
+    });
+    if (!res.ok) return null;
+
+    const data: ReleaseInfo = await res.json();
+    const version = data.tag_name.replace(/^v/, "");
+
+    const armDmg = data.assets.find((a) => a.name.includes("arm64") && a.name.endsWith(".dmg"));
+    const x64Dmg = data.assets.find((a) => a.name.includes("x64") && a.name.endsWith(".dmg"));
+
+    return {
+      version,
+      armDmg: armDmg?.browser_download_url || RELEASES_URL,
+      x64Dmg: x64Dmg?.browser_download_url || RELEASES_URL,
+      fallback: RELEASES_URL,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const features = [
   {
@@ -36,7 +79,13 @@ const features = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const release = await getLatestRelease();
+  const armUrl = release?.armDmg || RELEASES_URL;
+  const x64Url = release?.x64Dmg || RELEASES_URL;
+  const downloadUrl = armUrl; // primary CTA defaults to ARM (most common)
+  const version = release?.version;
+
   return (
     <div className="page-wrapper">
       {/* ── Nav ── */}
@@ -52,7 +101,7 @@ export default function Home() {
             <a href="#download" className="nav-link">
               Download
             </a>
-            <a href={RELEASE_URL} className="nav-cta" target="_blank" rel="noopener noreferrer">
+            <a href={downloadUrl} className="nav-cta" target="_blank" rel="noopener noreferrer">
               Get Ockham
             </a>
           </div>
@@ -72,7 +121,7 @@ export default function Home() {
           with AI to turn specifications into verified, working software.
         </p>
         <div className="hero-actions">
-          <a href={RELEASE_URL} className="btn-primary" target="_blank" rel="noopener noreferrer">
+          <a href={downloadUrl} className="btn-primary" target="_blank" rel="noopener noreferrer">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -89,7 +138,10 @@ export default function Home() {
             Learn More
           </a>
         </div>
-        <p className="hero-platform">macOS · Apple Silicon & Intel · Free</p>
+        <p className="hero-platform">
+          macOS · Apple Silicon & Intel · Free
+          {version && <span> · v{version}</span>}
+        </p>
       </section>
 
       {/* ── Features ── */}
@@ -125,7 +177,10 @@ export default function Home() {
         <div className="container download-content">
           <div className="section-header">
             <div className="section-label">Download</div>
-            <h2 className="section-title">Get Ockham for macOS</h2>
+            <h2 className="section-title">
+              Get Ockham for macOS
+              {version && <span className="version-badge">v{version}</span>}
+            </h2>
             <p className="section-desc">
               Choose the version for your Mac architecture.
               Both are free and always will be.
@@ -133,12 +188,12 @@ export default function Home() {
           </div>
 
           <div className="download-cards">
-            <a href={RELEASE_URL} className="download-card" target="_blank" rel="noopener noreferrer">
+            <a href={armUrl} className="download-card" target="_blank" rel="noopener noreferrer">
               <div className="download-icon">🍎</div>
               <div className="download-arch">Apple Silicon</div>
               <div className="download-chip">M1 / M2 / M3 / M4</div>
             </a>
-            <a href={RELEASE_URL} className="download-card" target="_blank" rel="noopener noreferrer">
+            <a href={x64Url} className="download-card" target="_blank" rel="noopener noreferrer">
               <div className="download-icon">💻</div>
               <div className="download-arch">Intel Mac</div>
               <div className="download-chip">x86_64</div>
