@@ -300,7 +300,8 @@ function SpecTestDrawer({
     const [previewSource, setPreviewSource] = useState<string | null>(null)
     const [previewLoading, setPreviewLoading] = useState(false)
 
-    // Reset on open
+    // Reset form state on open
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (open) {
             if (mode === 'edit' && editingTest) {
@@ -318,6 +319,7 @@ function SpecTestDrawer({
             }
         }
     }, [open, mode, editingTest, selectedGroup])
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleLookup = useCallback(async (idx: number) => {
         const val = pathInputs[idx]?.trim()
@@ -664,6 +666,8 @@ function GroupEditorDrawer({
     const [preconditions, setPreconditions] = useState('')
     const [parentKey, setParentKey] = useState<string | undefined>(undefined)
 
+    // Reset form state on open
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (open && group) {
             setName(group.name)
@@ -675,6 +679,7 @@ function GroupEditorDrawer({
             setParentKey('default')
         }
     }, [open, group])
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const isDefault = group?.key === 'default'
 
@@ -828,7 +833,7 @@ export function SpecTestsPage() {
     // Link state
     const [linkResults, setLinkResults] = useState<Record<string, { filePath: string; line: number }>>({})
     const [linking, setLinking] = useState(false)
-    const [viewTestFile, setViewTestFile] = useState<{ path: string; line: number; source: string } | null>(null)
+    const [_viewTestFile, setViewTestFile] = useState<{ path: string; line: number; source: string } | null>(null)
 
     const handleLink = useCallback(async () => {
         setLinking(true)
