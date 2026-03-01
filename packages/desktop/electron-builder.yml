@@ -8,7 +8,7 @@ files:
   - "!src/**"
   - "!node_modules/@ockham/*/src/**"
 mac:
-  artifactName: ${name}-${version}-${arch}.${ext}
+  artifactName: Ockham-${version}-${arch}.${ext}
   target:
     - target: dmg
       arch:

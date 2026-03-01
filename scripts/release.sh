@@ -60,8 +60,8 @@ if gh release view "$TAG" --repo "$RELEASE_REPO" &> /dev/null; then
 fi
 
 # 7. Check if artifacts already exist (skip build if so)
-ARM_DMG="$DIST_DIR/ockham-${VERSION}-arm64.dmg"
-X64_DMG="$DIST_DIR/ockham-${VERSION}-x64.dmg"
+ARM_DMG="$DIST_DIR/Ockham-${VERSION}-arm64.dmg"
+X64_DMG="$DIST_DIR/Ockham-${VERSION}-x64.dmg"
 
 if [[ -f "$ARM_DMG" && -f "$X64_DMG" ]]; then
     echo ""
@@ -110,8 +110,8 @@ gh release create "$TAG" \
     --notes "## Ockham $TAG
 
 ### Downloads
-- **Apple Silicon (M1/M2/M3)**: \`ockham-${VERSION}-arm64.dmg\`
-- **Intel Mac**: \`ockham-${VERSION}-x64.dmg\`
+- **Apple Silicon (M1/M2/M3)**: \`Ockham-${VERSION}-arm64.dmg\`
+- **Intel Mac**: \`Ockham-${VERSION}-x64.dmg\`
 
 ### Installation
 1. Download the DMG for your Mac architecture
