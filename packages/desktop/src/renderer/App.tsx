@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as antTheme, Select, Space, Spin } from 'antd'
+import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as antTheme, Select, Space, Spin, App as AntdApp, Modal, Form, Input } from 'antd'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
     CodeOutlined,
     BookOutlined,
+    ReadOutlined,
     ExperimentOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
@@ -19,6 +20,7 @@ import {
     ImportOutlined,
     SettingOutlined,
     TeamOutlined,
+    PlusOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -31,6 +33,8 @@ import { SpecTestsPage } from './containers/SpecTestsPage'
 import { LoginPage } from './containers/LoginPage'
 import { StatusBar } from './components/StatusBar'
 import { TeamSettingsPage } from './containers/TeamSettingsPage'
+import { KnowledgeBasePage } from './containers/KnowledgeBasePage'
+import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam } from './api'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
@@ -51,9 +55,10 @@ interface AppLayoutProps {
     currentTeam: { id: string; name: string; slug: string } | null
     teams: { id: string; name: string; slug: string }[]
     onSwitchTeam: (teamId: string) => void
+    onCreateTeam: (name: string) => Promise<void>
 }
 
-function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onCloseProject, currentTeam, teams, onSwitchTeam }: AppLayoutProps) {
+function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onCloseProject, currentTeam, teams, onSwitchTeam, onCreateTeam }: AppLayoutProps) {
     const [collapsed, setCollapsed] = useState(false)
     const navigate = useNavigate()
     const location = useLocation()
@@ -87,7 +92,14 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
             icon: <FileProtectOutlined />,
             label: 'Spec Tests',
         },
-        { type: 'divider' as const },
+    ]
+
+    const teamMenuItems = [
+        {
+            key: '/knowledge',
+            icon: <ReadOutlined />,
+            label: 'Knowledge Base',
+        },
         {
             key: '/settings',
             icon: <SettingOutlined />,
@@ -116,49 +128,78 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                     bottom: 0,
                     zIndex: 100,
                     paddingTop: 44,
+                    overflow: 'hidden',
                 }}
             >
-                <div
-                    style={{
-                        height: 48,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: collapsed ? 'center' : 'flex-start',
-                        padding: collapsed ? 0 : '0 24px',
-                        fontWeight: 700,
-                        fontSize: collapsed ? 16 : 18,
-                        letterSpacing: 1,
-                        userSelect: 'none',
-                    }}
-                >
-                    {collapsed ? 'O' : 'Ockham'}
-                </div>
-                {!collapsed && currentTeam && teams.length > 0 && (
-                    <div style={{ padding: '0 12px 8px' }}>
-                        <Select
-                            size="small"
-                            value={currentTeam.id}
-                            onChange={onSwitchTeam}
-                            style={{ width: '100%' }}
-                            options={teams.map((t) => ({
-                                value: t.id,
-                                label: (
-                                    <Space size={4}>
-                                        <TeamOutlined />
-                                        <span>{t.name}</span>
-                                    </Space>
-                                ),
-                            }))}
-                        />
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div
+                        style={{
+                            height: 48,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: collapsed ? 'center' : 'flex-start',
+                            padding: collapsed ? 0 : '0 24px',
+                            fontWeight: 700,
+                            fontSize: collapsed ? 16 : 18,
+                            letterSpacing: 1,
+                            userSelect: 'none',
+                            flexShrink: 0,
+                        }}
+                    >
+                        {collapsed ? 'O' : 'Ockham'}
                     </div>
-                )}
-                <Menu
-                    mode="inline"
-                    selectedKeys={[location.pathname]}
-                    items={menuItems}
-                    onClick={({ key }) => navigate(key)}
-                    style={{ borderRight: 0 }}
-                />
+                    {!collapsed && currentTeam && teams.length > 0 && (
+                        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+                            <Select
+                                size="small"
+                                value={currentTeam.id}
+                                onChange={(val) => {
+                                    if (val === '__create__') {
+                                        onCreateTeam('')
+                                    } else {
+                                        onSwitchTeam(val)
+                                    }
+                                }}
+                                style={{ width: '100%' }}
+                                options={[
+                                    ...teams.map((t) => ({
+                                        value: t.id,
+                                        label: (
+                                            <Space size={4}>
+                                                <TeamOutlined />
+                                                <span>{t.name}</span>
+                                            </Space>
+                                        ),
+                                    })),
+                                    {
+                                        value: '__create__',
+                                        label: (
+                                            <Space size={4} style={{ color: '#1677ff' }}>
+                                                <PlusOutlined />
+                                                <span>Create Team</span>
+                                            </Space>
+                                        ),
+                                    },
+                                ]}
+                            />
+                        </div>
+                    )}
+                    <Menu
+                        mode="inline"
+                        selectedKeys={[location.pathname]}
+                        items={menuItems}
+                        onClick={({ key }) => navigate(key)}
+                        style={{ borderRight: 0, flex: 'none' }}
+                    />
+                    <div style={{ flex: 1 }} />
+                    <Menu
+                        mode="inline"
+                        selectedKeys={[location.pathname]}
+                        items={teamMenuItems}
+                        onClick={({ key }) => navigate(key)}
+                        style={{ borderRight: 0, flex: 'none' }}
+                    />
+                </div>
             </Sider>
             <Layout
                 style={{
@@ -271,6 +312,11 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                         <Route path="/story" element={<StoryPage />} />
                         <Route path="/unit-tests" element={<UnitTestsPage />} />
                         <Route path="/spec-tests" element={<SpecTestsPage />} />
+                        <Route path="/knowledge" element={
+                            currentTeam
+                                ? <KnowledgeBasePage currentTeam={currentTeam} />
+                                : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
+                        } />
                         <Route path="/settings" element={
                             currentTeam
                                 ? <TeamSettingsPage currentTeam={currentTeam} />
@@ -291,73 +337,52 @@ export default function App() {
     const [authLoading, setAuthLoading] = useState(true)
     const [teams, setTeams] = useState<{ id: string; name: string; slug: string }[]>([])
     const [currentTeam, setCurrentTeam] = useState<{ id: string; name: string; slug: string } | null>(null)
+    const [createTeamModalOpen, setCreateTeamModalOpen] = useState(false)
+    const [createTeamForm] = Form.useForm()
 
     useEffect(() => {
         async function init() {
-            // 1. Restore session from localStorage immediately (fast UI)
-            const cached = localStorage.getItem('ockham_session')
-            const cachedToken = localStorage.getItem('ockham_auth_token')
-            if (cached) {
-                try {
-                    const parsed = JSON.parse(cached)
-                    setSession(parsed)
-                } catch { /* ignore */ }
-            }
+            // 1. Restore from localStorage (instant UI)
+            const sess = getStoredSession()
+            const token = getStoredToken()
+            if (sess) setSession(sess)
 
-            // Restore teams from cache immediately
             const cachedTeam = localStorage.getItem('ockham_current_team')
             const cachedTeams = localStorage.getItem('ockham_teams')
-            if (cachedTeam) {
-                try { setCurrentTeam(JSON.parse(cachedTeam)) } catch { /* ignore */ }
-            }
-            if (cachedTeams) {
-                try { setTeams(JSON.parse(cachedTeams)) } catch { /* ignore */ }
-            }
+            if (cachedTeam) try { setCurrentTeam(JSON.parse(cachedTeam)) } catch { /* */ }
+            if (cachedTeams) try { setTeams(JSON.parse(cachedTeams)) } catch { /* */ }
 
-            // 2. Sync token from localStorage to main process (regardless of getSession result)
-            if (cachedToken && cached) {
-                try {
-                    const parsedSession = JSON.parse(cached)
-                    await window.authApi.syncSession({
-                        token: cachedToken,
-                        userId: parsedSession.userId,
-                        userName: parsedSession.userName,
-                        email: parsedSession.email,
-                    })
-                } catch { /* ignore */ }
-            }
-
-            // 3. Try to verify session with server via main process
-            try {
-                const s = await window.authApi.getSession()
-                if (s) {
-                    const sess = { userId: s.userId, userName: s.userName, email: s.email }
-                    setSession(sess)
-                    localStorage.setItem('ockham_session', JSON.stringify(sess))
-                    if (s.token) {
-                        localStorage.setItem('ockham_auth_token', s.token)
-                    }
-                } else if (!cached) {
-                    setSession(null)
-                }
-            } catch { /* ignore */ }
             setAuthLoading(false)
 
-            // 4. Load teams (main process now has token from step 2)
-            try {
-                const team = await window.teamApi.ensure()
-                setCurrentTeam(team)
-                localStorage.setItem('ockham_current_team', JSON.stringify(team))
-                const list = await window.teamApi.list()
-                setTeams(list)
-                localStorage.setItem('ockham_teams', JSON.stringify(list))
-            } catch { /* ignore */ }
+            // 2. If we have a token, load teams from server directly (bypasses IPC)
+            if (token) {
+                try {
+                    const team = await ensureTeam()
+                    setCurrentTeam(team)
+                    localStorage.setItem('ockham_current_team', JSON.stringify(team))
+                    const list = await listTeams()
+                    setTeams(list)
+                    localStorage.setItem('ockham_teams', JSON.stringify(list))
+                } catch (err) {
+                    console.warn('[App] Team loading failed:', err)
+                }
+            }
         }
         init()
     }, [])
 
-    if (loading || authLoading) {
-        return null
+    const handleCreateTeam = async (values: { name: string }) => {
+        const slug = values.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        const newTeam = await createTeam(values.name, slug)
+        // Refresh teams list
+        const list = await listTeams()
+        setTeams(list)
+        localStorage.setItem('ockham_teams', JSON.stringify(list))
+        // Switch to the new team
+        setCurrentTeam(newTeam)
+        localStorage.setItem('ockham_current_team', JSON.stringify(newTeam))
+        setCreateTeamModalOpen(false)
+        createTeamForm.resetFields()
     }
 
     const antdTheme = {
@@ -370,60 +395,95 @@ export default function App() {
         cssVar: { prefix: 'ockham' },
     }
 
+    if (loading || authLoading) {
+        return (
+            <ConfigProvider theme={antdTheme}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                    <Spin size="large" />
+                </div>
+            </ConfigProvider>
+        )
+    }
+
     return (
         <ConfigProvider theme={antdTheme}>
-            <HashRouter>
-                {!session ? (
-                    <LoginPage onLoginSuccess={async (s) => {
-                        setSession(s)
-                        localStorage.setItem('ockham_session', JSON.stringify(s))
-                        // Save and sync token to main process
-                        const token = ('token' in s) ? (s as { token?: string }).token : undefined
-                        if (token) {
-                            localStorage.setItem('ockham_auth_token', token)
-                            await window.authApi.syncSession(s as { token: string; userId: string; userName: string; email: string }).catch(() => { })
-                        }
-                        // Load teams after login
-                        try {
-                            const team = await window.teamApi.ensure()
-                            setCurrentTeam(team)
-                            localStorage.setItem('ockham_current_team', JSON.stringify(team))
-                            const list = await window.teamApi.list()
-                            setTeams(list)
-                            localStorage.setItem('ockham_teams', JSON.stringify(list))
-                        } catch { /* non-blocking */ }
-                    }} />
-                ) : !currentWorkspace ? (
-                    <WelcomePage
-                        recentWorkspaces={recentWorkspaces}
-                        openWorkspace={openWorkspace}
-                        removeRecent={removeRecent}
-                    />
-                ) : (
-                    <AppLayout
-                        currentWorkspace={currentWorkspace}
-                        openWorkspace={openWorkspace}
-                        session={session}
-                        onLogout={async () => {
-                            await window.authApi.logout()
-                            localStorage.removeItem('ockham_session')
-                            localStorage.removeItem('ockham_auth_token')
-                            localStorage.removeItem('ockham_current_team')
-                            localStorage.removeItem('ockham_teams')
-                            setSession(null)
-                            setCurrentTeam(null)
-                            setTeams([])
-                        }}
-                        onCloseProject={closeWorkspace}
-                        currentTeam={currentTeam}
-                        teams={teams}
-                        onSwitchTeam={(teamId) => {
-                            const t = teams.find((team) => team.id === teamId)
-                            if (t) setCurrentTeam(t)
-                        }}
-                    />
-                )}
-            </HashRouter>
+            <AntdApp>
+                <HashRouter>
+                    {!session ? (
+                        <LoginPage onLoginSuccess={async (s) => {
+                            setSession({ userId: s.userId, userName: s.userName, email: s.email })
+                            // Token already saved to localStorage by api.ts login
+                            try {
+                                const team = await ensureTeam()
+                                setCurrentTeam(team)
+                                localStorage.setItem('ockham_current_team', JSON.stringify(team))
+                                const list = await listTeams()
+                                setTeams(list)
+                                localStorage.setItem('ockham_teams', JSON.stringify(list))
+                            } catch { /* non-blocking */ }
+                        }} />
+                    ) : !currentWorkspace ? (
+                        <WelcomePage
+                            recentWorkspaces={recentWorkspaces}
+                            openWorkspace={openWorkspace}
+                            removeRecent={removeRecent}
+                        />
+                    ) : (
+                        <AppLayout
+                            currentWorkspace={currentWorkspace}
+                            openWorkspace={openWorkspace}
+                            session={session}
+                            onLogout={() => {
+                                apiLogout()
+                                setSession(null)
+                                setCurrentTeam(null)
+                                setTeams([])
+                            }}
+                            onCloseProject={closeWorkspace}
+                            currentTeam={currentTeam}
+                            teams={teams}
+                            onSwitchTeam={(teamId) => {
+                                const t = teams.find((team) => team.id === teamId)
+                                if (t) {
+                                    setCurrentTeam(t)
+                                    localStorage.setItem('ockham_current_team', JSON.stringify(t))
+                                }
+                            }}
+                            onCreateTeam={async () => {
+                                setCreateTeamModalOpen(true)
+                            }}
+                        />
+                    )}
+
+                    <Modal
+                        title="Create Team"
+                        open={createTeamModalOpen}
+                        onCancel={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}
+                        footer={null}
+                        destroyOnClose
+                    >
+                        <Form form={createTeamForm} layout="vertical" onFinish={handleCreateTeam}>
+                            <Form.Item
+                                name="name"
+                                label="Team Name"
+                                rules={[{ required: true, message: 'Please enter a team name' }]}
+                            >
+                                <Input placeholder="e.g. Engineering, Design..." />
+                            </Form.Item>
+                            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                                <Space>
+                                    <Button onClick={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="primary" htmlType="submit">
+                                        Create
+                                    </Button>
+                                </Space>
+                            </Form.Item>
+                        </Form>
+                    </Modal>
+                </HashRouter>
+            </AntdApp>
         </ConfigProvider>
     )
 }

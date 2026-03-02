@@ -418,6 +418,10 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$web$2f$src$2f$ba
 const auth = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$better$2d$auth$40$1$2e$5$2e$0_$40$prisma$2b$client$40$7$2e$4$2e$2_prisma$40$7$2e$4$2e$2_$40$types$2b$react$40$19$2e$2$2e$14_react$2d$dom$40$19$2e$2_d49a2ca6640c075047bec5b67ba8bb35$2f$node_modules$2f$better$2d$auth$2f$dist$2f$auth$2f$full$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["betterAuth"])({
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: ("TURBOPACK compile-time value", "http://localhost:7353") || 'http://localhost:7353',
+    trustedOrigins: [
+        'http://localhost:5173',
+        'http://localhost:7353'
+    ],
     database: (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$better$2d$auth$2b$drizzle$2d$adapter$40$1$2e$5$2e$0_$40$better$2d$auth$2b$core$40$1$2e$5$2e$0_$40$better$2d$auth$2b$utils$40$0$2e$3$2e$1_$40$be_00a141e060e3bf47c53a059a52603264$2f$node_modules$2f40$better$2d$auth$2f$drizzle$2d$adapter$2f$dist$2f$index$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["drizzleAdapter"])(__TURBOPACK__imported__module__$5b$project$5d2f$packages$2f$web$2f$src$2f$backend$2f$infrastructure$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["db"], {
         provider: 'pg',
         schema: {

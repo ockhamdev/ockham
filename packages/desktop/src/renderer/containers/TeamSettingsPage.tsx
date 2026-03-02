@@ -1,169 +1,106 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { Typography, Card, Tabs, Form, Input, Button, Table, Space, Switch, Tag, Popconfirm, message, Select } from 'antd'
-import { PlusOutlined, DeleteOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons'
+import React, { useEffect, useState } from 'react'
+import { Card, Tabs, Typography, Form, Input, Button, Table, Popconfirm, Switch, Space, Spin, App as AntdApp } from 'antd'
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { listAiConfigs, upsertAiConfig, deleteAiConfig, type TeamAiConfig, type Team } from '../api'
 
-const { Title, Text, Paragraph } = Typography
-
-interface AiConfigRow {
-    id: string
-    teamId: string
-    provider: string
-    apiKey: string
-    baseUrl: string
-    models: string[]
-    isDefault: boolean
-}
+const { Title, Text } = Typography
 
 interface TeamSettingsPageProps {
-    currentTeam: { id: string; name: string; slug: string }
+    currentTeam: Team
 }
 
-const PROVIDER_OPTIONS = [
-    { value: 'openai', label: 'OpenAI' },
-    { value: 'anthropic', label: 'Anthropic' },
-    { value: 'deepseek', label: 'DeepSeek' },
-    { value: 'custom', label: 'Custom' },
-]
-
 export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
-    const [configs, setConfigs] = useState<AiConfigRow[]>([])
+    const [configs, setConfigs] = useState<TeamAiConfig[]>([])
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form] = Form.useForm()
+    const { message } = AntdApp.useApp()
 
-    const loadConfigs = useCallback(async () => {
+    const loadConfigs = async () => {
         setLoading(true)
         try {
-            const data = await window.teamAiConfigApi.list(currentTeam.id)
-            setConfigs(data)
+            const list = await listAiConfigs(currentTeam.id)
+            setConfigs(list || [])
         } catch {
-            message.error('Failed to load AI configs')
+            setConfigs([])
         }
         setLoading(false)
-    }, [currentTeam.id])
+    }
 
     useEffect(() => {
         loadConfigs()
-    }, [loadConfigs])
+    }, [currentTeam.id])
 
-    const handleSave = async (values: {
-        provider: string
-        apiKey: string
-        baseUrl?: string
-        models?: string
-        isDefault?: boolean
-    }) => {
+    const handleSubmit = async (values: { provider: string; apiKey: string; baseUrl?: string; models?: string; isDefault?: boolean }) => {
         try {
-            const models = values.models
-                ? values.models.split(',').map((m) => m.trim()).filter(Boolean)
-                : []
-            await window.teamAiConfigApi.upsert({
+            await upsertAiConfig({
                 id: editingId || undefined,
                 teamId: currentTeam.id,
                 provider: values.provider,
                 apiKey: values.apiKey,
-                baseUrl: values.baseUrl || '',
-                models,
+                baseUrl: values.baseUrl || undefined,
+                models: values.models ? values.models.split(',').map((m) => m.trim()).filter(Boolean) : [],
                 isDefault: values.isDefault || false,
             })
-            message.success(editingId ? 'Config updated' : 'Config added')
-            setEditingId(null)
+            message.success(editingId ? 'Provider updated' : 'Provider added')
             form.resetFields()
+            setEditingId(null)
             loadConfigs()
-        } catch {
-            message.error('Failed to save config')
+        } catch (err: unknown) {
+            message.error((err as Error).message || 'Failed to save')
         }
     }
 
     const handleDelete = async (id: string) => {
         try {
-            await window.teamAiConfigApi.delete(id)
-            message.success('Config deleted')
+            await deleteAiConfig(id)
+            message.success('Provider removed')
             loadConfigs()
-        } catch {
-            message.error('Failed to delete config')
+        } catch (err: unknown) {
+            message.error((err as Error).message || 'Failed to delete')
         }
     }
 
-    const handleEdit = (record: AiConfigRow) => {
+    const handleEdit = (record: TeamAiConfig) => {
         setEditingId(record.id)
         form.setFieldsValue({
             provider: record.provider,
             apiKey: record.apiKey,
-            baseUrl: record.baseUrl,
-            models: record.models.join(', '),
+            baseUrl: record.baseUrl || '',
+            models: record.models?.join(', ') || '',
             isDefault: record.isDefault,
         })
     }
 
-    const handleCancelEdit = () => {
-        setEditingId(null)
-        form.resetFields()
-    }
-
     const columns = [
-        {
-            title: 'Provider',
-            dataIndex: 'provider',
-            key: 'provider',
-            render: (val: string) => (
-                <Tag color={val === 'openai' ? 'green' : val === 'anthropic' ? 'purple' : val === 'deepseek' ? 'blue' : 'default'}>
-                    {val}
-                </Tag>
-            ),
-        },
+        { title: 'Provider', dataIndex: 'provider', key: 'provider' },
         {
             title: 'API Key',
             dataIndex: 'apiKey',
             key: 'apiKey',
-            render: (val: string) => (
-                <Text code style={{ fontSize: 12 }}>
-                    {val.substring(0, 8)}...{val.substring(val.length - 4)}
-                </Text>
-            ),
+            render: (key: string) => key ? `${key.slice(0, 8)}...` : '-',
         },
-        {
-            title: 'Base URL',
-            dataIndex: 'baseUrl',
-            key: 'baseUrl',
-            render: (val: string) => val || <Text type="secondary">—</Text>,
-        },
+        { title: 'Base URL', dataIndex: 'baseUrl', key: 'baseUrl', render: (v: string) => v || '-' },
         {
             title: 'Models',
             dataIndex: 'models',
             key: 'models',
-            render: (models: string[]) => (
-                <Space wrap size={[4, 4]}>
-                    {models.length > 0
-                        ? models.map((m) => <Tag key={m}>{m}</Tag>)
-                        : <Text type="secondary">—</Text>}
-                </Space>
-            ),
+            render: (models: string[]) => models?.length ? models.join(', ') : '-',
         },
         {
             title: 'Default',
             dataIndex: 'isDefault',
             key: 'isDefault',
-            width: 80,
-            render: (val: boolean) => val ? <Tag color="blue">Yes</Tag> : null,
+            render: (v: boolean) => v ? 'Yes' : 'No',
         },
         {
-            title: '',
+            title: 'Actions',
             key: 'actions',
-            width: 100,
-            render: (_: unknown, record: AiConfigRow) => (
+            render: (_: unknown, record: TeamAiConfig) => (
                 <Space>
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                    />
-                    <Popconfirm
-                        title="Delete this config?"
-                        onConfirm={() => handleDelete(record.id)}
-                    >
-                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                    <Popconfirm title="Delete this provider?" onConfirm={() => handleDelete(record.id)}>
+                        <Button type="link" danger icon={<DeleteOutlined />} />
                     </Popconfirm>
                 </Space>
             ),
@@ -171,8 +108,9 @@ export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
     ]
 
     return (
-        <div style={{ padding: 24, maxWidth: 960 }}>
+        <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
             <Title level={3}>Team Settings</Title>
+
             <Tabs
                 items={[
                     {
@@ -189,9 +127,9 @@ export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
                                     </div>
                                     <div>
                                         <Text type="secondary" style={{ fontSize: 12 }}>Slug</Text>
-                                        <Paragraph code style={{ margin: '4px 0 0' }}>
-                                            {currentTeam.slug}
-                                        </Paragraph>
+                                        <div>
+                                            <Text code>{currentTeam.slug}</Text>
+                                        </div>
                                     </div>
                                 </Space>
                             </Card>
@@ -206,64 +144,48 @@ export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
                                     title={editingId ? 'Edit AI Provider' : 'Add AI Provider'}
                                     size="small"
                                 >
-                                    <Form
-                                        form={form}
-                                        layout="vertical"
-                                        onFinish={handleSave}
-                                        initialValues={{ provider: 'openai', isDefault: false }}
-                                    >
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                            <Form.Item
-                                                name="provider"
-                                                label="Provider"
-                                                rules={[{ required: true }]}
-                                            >
-                                                <Select options={PROVIDER_OPTIONS} />
-                                            </Form.Item>
-                                            <Form.Item
-                                                name="apiKey"
-                                                label="API Key"
-                                                rules={[{ required: true }]}
-                                            >
-                                                <Input.Password placeholder="sk-..." />
-                                            </Form.Item>
-                                        </div>
+                                    <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                                        <Form.Item name="provider" label="Provider" rules={[{ required: true }]}>
+                                            <Input placeholder="e.g. OpenAI, Anthropic, Azure" />
+                                        </Form.Item>
+                                        <Form.Item name="apiKey" label="API Key" rules={[{ required: true }]}>
+                                            <Input.Password placeholder="sk-..." />
+                                        </Form.Item>
                                         <Form.Item name="baseUrl" label="Base URL (optional)">
                                             <Input placeholder="https://api.openai.com/v1" />
                                         </Form.Item>
-                                        <Form.Item
-                                            name="models"
-                                            label="Models (comma-separated)"
-                                        >
-                                            <Input placeholder="gpt-4o, gpt-4o-mini, o3-mini" />
+                                        <Form.Item name="models" label="Models (comma-separated)">
+                                            <Input placeholder="gpt-4, gpt-3.5-turbo" />
                                         </Form.Item>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                            <Form.Item name="isDefault" valuePropName="checked" style={{ margin: 0 }}>
-                                                <Switch checkedChildren="Default" unCheckedChildren="Default" />
-                                            </Form.Item>
-                                            <Space>
-                                                <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                                                    {editingId ? 'Update' : 'Add'}
+                                        <Form.Item name="isDefault" label="Default Provider" valuePropName="checked">
+                                            <Switch />
+                                        </Form.Item>
+                                        <Space>
+                                            <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>
+                                                {editingId ? 'Update' : 'Add'}
+                                            </Button>
+                                            {editingId && (
+                                                <Button onClick={() => { setEditingId(null); form.resetFields() }}>
+                                                    Cancel
                                                 </Button>
-                                                {editingId && (
-                                                    <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>
-                                                        Cancel
-                                                    </Button>
-                                                )}
-                                            </Space>
-                                        </div>
+                                            )}
+                                        </Space>
                                     </Form>
                                 </Card>
 
-                                <Table
-                                    dataSource={configs}
-                                    columns={columns}
-                                    rowKey="id"
-                                    loading={loading}
-                                    pagination={false}
-                                    size="small"
-                                    locale={{ emptyText: 'No AI providers configured yet' }}
-                                />
+                                <Card title="Configured Providers" size="small">
+                                    {loading ? (
+                                        <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
+                                    ) : (
+                                        <Table
+                                            dataSource={configs}
+                                            columns={columns}
+                                            rowKey="id"
+                                            pagination={false}
+                                            size="small"
+                                        />
+                                    )}
+                                </Card>
                             </Space>
                         ),
                     },

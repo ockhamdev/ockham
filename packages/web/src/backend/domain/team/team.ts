@@ -33,3 +33,14 @@ export interface TeamAiConfig extends BaseEntity {
     readonly models: string[]
     readonly isDefault: boolean
 }
+
+/**
+ * 知识库词条
+ */
+export interface KnowledgeEntry extends BaseEntity {
+    readonly teamId: Id
+    readonly title: string
+    readonly content: string
+    readonly createdBy: Id
+    readonly updatedBy: Id
+}

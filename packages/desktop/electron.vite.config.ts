@@ -29,6 +29,14 @@ export default defineConfig({
     renderer: {
         plugins: [react()],
         root: resolve(__dirname, 'src/renderer'),
+        server: {
+            proxy: {
+                '/api/': {
+                    target: 'http://localhost:7353',
+                    changeOrigin: true,
+                },
+            },
+        },
         build: {
             outDir: resolve(__dirname, 'out/renderer'),
             rollupOptions: {

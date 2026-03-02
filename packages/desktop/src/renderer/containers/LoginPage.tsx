@@ -1,20 +1,22 @@
 import React, { useState } from 'react'
-import { Button, Card, Form, Input, Typography, message, Space, Tabs } from 'antd'
+import { Button, Card, Form, Input, Typography, App as AntdApp, Space, Tabs } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
+import { apiLogin, apiRegister } from '../api'
 
 const { Title, Text } = Typography
 
 interface LoginPageProps {
-    onLoginSuccess: (session: { userId: string; userName: string; email: string }) => void
+    onLoginSuccess: (session: { token: string; userId: string; userName: string; email: string }) => void
 }
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     const [loading, setLoading] = useState(false)
+    const { message } = AntdApp.useApp()
 
     const handleLogin = async (values: { email: string; password: string }) => {
         setLoading(true)
         try {
-            const session = await window.authApi.login(values.email, values.password)
+            const session = await apiLogin(values.email, values.password)
             message.success('Logged in successfully')
             onLoginSuccess(session)
         } catch (err: unknown) {
@@ -27,7 +29,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     const handleRegister = async (values: { email: string; password: string }) => {
         setLoading(true)
         try {
-            const session = await window.authApi.register(values.email, values.password)
+            const session = await apiRegister(values.email, values.password)
             message.success('Account created successfully')
             onLoginSuccess(session)
         } catch (err: unknown) {

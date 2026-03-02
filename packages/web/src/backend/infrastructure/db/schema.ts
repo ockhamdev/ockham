@@ -84,6 +84,17 @@ export const teamAiConfigs = pgTable('team_ai_configs', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const knowledgeEntries = pgTable('knowledge_entries', {
+    id: uuid('id').primaryKey(),
+    teamId: uuid('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    content: text('content').notNull().default(''),
+    createdBy: uuid('created_by').notNull().references(() => users.id),
+    updatedBy: uuid('updated_by').notNull().references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ── Project ───────────────────────────────────────────
 
 export const projects = pgTable('projects', {
