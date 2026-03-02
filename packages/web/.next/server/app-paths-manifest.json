@@ -1,0 +1,18 @@
+{
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(dashboard)/dashboard/knowledge/page": "app/(dashboard)/dashboard/knowledge/page.js",
+  "/(dashboard)/dashboard/notes/page": "app/(dashboard)/dashboard/notes/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/dashboard/projects/page": "app/(dashboard)/dashboard/projects/page.js",
+  "/(dashboard)/dashboard/settings/page": "app/(dashboard)/dashboard/settings/page.js",
+  "/(dashboard)/dashboard/spec-tests/page": "app/(dashboard)/dashboard/spec-tests/page.js",
+  "/(dashboard)/dashboard/stories/page": "app/(dashboard)/dashboard/stories/page.js",
+  "/(dashboard)/dashboard/teams/page": "app/(dashboard)/dashboard/teams/page.js",
+  "/(dashboard)/dashboard/tests/page": "app/(dashboard)/dashboard/tests/page.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/[...all]/route": "app/api/auth/[...all]/route.js",
+  "/api/trpc/[trpc]/route": "app/api/trpc/[trpc]/route.js",
+  "/page": "app/page.js"
+}

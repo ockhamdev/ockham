@@ -154,7 +154,7 @@ export function NotesPage() {
                 okText="Save"
                 destroyOnClose
             >
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                     <Input
                         placeholder="Title"
                         value={title}

@@ -1,41 +1,36 @@
 import { ipcMain } from 'electron'
 import { IPC } from '@ockham/shared'
 import type { Note, AddNotePayload, UpdateNotePayload } from '@ockham/shared'
-import { windowManager } from '../windowManager'
-import * as notesStore from '../infrastructure/notesStore'
+import { trpcQuery, trpcMutation } from '../infrastructure/apiClient'
 
 /**
  * Register Notes IPC handlers.
- * All operations are scoped to the workspace of the calling window.
+ * All operations call the Web backend via tRPC.
  */
 export function registerNotesHandlers(): void {
-    ipcMain.handle(IPC.NOTES_LOAD, (event): Note[] => {
-        const workspace = windowManager.getWorkspace(event.sender.id)
-        if (!workspace) return []
-        return notesStore.loadNotes(workspace)
+    ipcMain.handle(IPC.NOTES_LOAD, async (_event, projectId: string): Promise<Note[]> => {
+        return trpcQuery<Note[]>('note.list', { projectId })
     })
 
     ipcMain.handle(
         IPC.NOTES_ADD,
-        (event, payload: AddNotePayload): Note | null => {
-            const workspace = windowManager.getWorkspace(event.sender.id)
-            if (!workspace) throw new Error('No workspace bound to this window')
-            return notesStore.addNote(workspace, payload)
+        async (_event, projectId: string, payload: AddNotePayload): Promise<Note | null> => {
+            return trpcMutation<Note>('note.create', {
+                projectId,
+                title: payload.title,
+                content: payload.content,
+            })
         }
     )
 
     ipcMain.handle(
         IPC.NOTES_UPDATE,
-        (event, payload: UpdateNotePayload): Note | null => {
-            const workspace = windowManager.getWorkspace(event.sender.id)
-            if (!workspace) throw new Error('No workspace bound to this window')
-            return notesStore.updateNote(workspace, payload)
+        async (_event, payload: UpdateNotePayload): Promise<Note | null> => {
+            return trpcMutation<Note>('note.update', payload)
         }
     )
 
-    ipcMain.handle(IPC.NOTES_DELETE, (event, id: string): void => {
-        const workspace = windowManager.getWorkspace(event.sender.id)
-        if (!workspace) throw new Error('No workspace bound to this window')
-        notesStore.deleteNote(workspace, id)
+    ipcMain.handle(IPC.NOTES_DELETE, async (_event, id: string): Promise<void> => {
+        await trpcMutation('note.delete', { id })
     })
 }

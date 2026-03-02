@@ -8,6 +8,9 @@ import { registerCodescanHandlers } from './ipc/codescanHandlers'
 import { registerStoryHandlers } from './ipc/storyHandlers'
 import { registerTestsHandlers } from './ipc/testsHandlers'
 import { registerSpecTestsHandlers } from './ipc/specTestsHandlers'
+import { registerAuthHandlers } from './ipc/authHandlers'
+import { registerGitHandlers } from './ipc/gitHandlers'
+import { registerTeamProjectHandlers } from './ipc/teamProjectHandlers'
 import path from 'path'
 
 /**
@@ -177,6 +180,9 @@ app.whenReady().then(() => {
     registerStoryHandlers()
     registerTestsHandlers()
     registerSpecTestsHandlers()
+    registerAuthHandlers()
+    registerGitHandlers()
+    registerTeamProjectHandlers()
 
     // Build menus
     buildAppMenu()

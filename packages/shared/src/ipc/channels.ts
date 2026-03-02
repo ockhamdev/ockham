@@ -42,6 +42,32 @@ export const IPC = {
     // AI Config
     AI_GET_CONFIG: 'ai:getConfig',
     AI_SET_CONFIG: 'ai:setConfig',
+
+    // Auth
+    AUTH_LOGIN: 'auth:login',
+    AUTH_REGISTER: 'auth:register',
+    AUTH_LOGOUT: 'auth:logout',
+    AUTH_GET_SESSION: 'auth:getSession',
+    AUTH_SYNC_SESSION: 'auth:syncSession',
+
+    // Story (additional)
+    STORY_ADD_MESSAGE: 'story:addMessage',
+
+    // Git
+    GIT_STATUS: 'git:status',
+    GIT_REMOTE_ORIGIN: 'git:remoteOrigin',
+
+    // Team
+    TEAM_LIST: 'team:list',
+    TEAM_ENSURE: 'team:ensure',
+
+    // Project
+    PROJECT_ENSURE: 'project:ensure',
+
+    // Team AI Config
+    TEAM_AI_CONFIG_LIST: 'teamAiConfig:list',
+    TEAM_AI_CONFIG_UPSERT: 'teamAiConfig:upsert',
+    TEAM_AI_CONFIG_DELETE: 'teamAiConfig:delete',
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

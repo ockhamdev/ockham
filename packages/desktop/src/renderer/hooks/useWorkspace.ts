@@ -46,12 +46,18 @@ export function useWorkspace() {
         setRecentWorkspaces((prev) => prev.filter((p) => p !== path))
     }, [])
 
+    /** Close the current workspace (go back to Welcome page) */
+    const closeWorkspace = useCallback(() => {
+        setCurrentWorkspace(null)
+    }, [])
+
     return {
         currentWorkspace,
         recentWorkspaces,
         loading,
         openWorkspace,
         openInNewWindow,
+        closeWorkspace,
         removeRecent,
     }
 }

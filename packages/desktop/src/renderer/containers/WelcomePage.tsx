@@ -1,12 +1,19 @@
-import React from 'react'
-import { Button, List, Typography } from 'antd'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Button, List, Typography, Select, Space, message } from 'antd'
 import {
     FolderOpenOutlined,
     DeleteOutlined,
     FolderOutlined,
+    TeamOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
+
+interface Team {
+    id: string
+    name: string
+    slug: string
+}
 
 interface WelcomePageProps {
     recentWorkspaces: string[]
@@ -15,6 +22,51 @@ interface WelcomePageProps {
 }
 
 export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: WelcomePageProps) {
+    const [teams, setTeams] = useState<Team[]>([])
+    const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
+    const [loadingTeams, setLoadingTeams] = useState(true)
+
+    // Load teams on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const team = await window.teamApi.ensure()
+                setCurrentTeamId(team.id)
+                const teamList = await window.teamApi.list()
+                setTeams(teamList)
+            } catch {
+                // ignore — user may not be logged in yet
+            }
+            setLoadingTeams(false)
+        })()
+    }, [])
+
+    /**
+     * Open a workspace, then ensure the project exists in the DB for the selected team.
+     */
+    const handleOpenWorkspace = useCallback(async (path?: string) => {
+        const result = await openWorkspace(path)
+        if (!result || !currentTeamId) return result
+
+        // Check git remote origin
+        try {
+            const remoteOrigin = await window.gitApi.getRemoteOrigin(result)
+            if (remoteOrigin) {
+                // Extract project name from remote URL
+                const name = remoteOrigin
+                    .replace(/\.git$/, '')
+                    .split('/')
+                    .pop() || result.split('/').pop() || 'Untitled'
+
+                await window.projectApi.ensure(currentTeamId, remoteOrigin, name)
+            }
+        } catch {
+            // Non-blocking — project linking is best-effort
+        }
+
+        return result
+    }, [openWorkspace, currentTeamId])
+
     return (
         <div
             style={{
@@ -33,11 +85,31 @@ export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: W
                 <Paragraph type="secondary" style={{ fontSize: 16 }}>
                     Test-driven delivery, powered by AI collaboration
                 </Paragraph>
+
+                {/* Team selector */}
+                {!loadingTeams && teams.length > 0 && (
+                    <div style={{ marginTop: 16, marginBottom: 24 }}>
+                        <Space align="center">
+                            <TeamOutlined style={{ fontSize: 16, opacity: 0.6 }} />
+                            <Text type="secondary" style={{ fontSize: 13 }}>Team:</Text>
+                            <Select
+                                value={currentTeamId}
+                                onChange={(val) => setCurrentTeamId(val)}
+                                style={{ minWidth: 200 }}
+                                options={teams.map((t) => ({
+                                    value: t.id,
+                                    label: t.name,
+                                }))}
+                            />
+                        </Space>
+                    </div>
+                )}
+
                 <Button
                     type="primary"
                     size="large"
                     icon={<FolderOpenOutlined />}
-                    onClick={() => openWorkspace()}
+                    onClick={() => handleOpenWorkspace()}
                     style={{ marginTop: 16 }}
                 >
                     Open Workspace
@@ -61,7 +133,7 @@ export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: W
                                         borderRadius: 8,
                                         transition: 'background 0.2s',
                                     }}
-                                    onClick={() => openWorkspace(ws)}
+                                    onClick={() => handleOpenWorkspace(ws)}
                                     actions={[
                                         <Button
                                             key="remove"

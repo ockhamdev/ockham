@@ -22,8 +22,8 @@ export interface WorkspaceAPI {
  * NotesAPI — exposed to renderer via contextBridge.
  */
 export interface NotesAPI {
-    loadNotes(): Promise<Note[]>
-    addNote(payload: AddNotePayload): Promise<Note>
+    loadNotes(projectId: string): Promise<Note[]>
+    addNote(projectId: string, payload: AddNotePayload): Promise<Note>
     updateNote(payload: UpdateNotePayload): Promise<Note>
     deleteNote(id: string): Promise<void>
 }
@@ -46,10 +46,12 @@ export interface CodeScanAPI {
 export interface StoryAPI {
     /** Send chat messages and receive enriched response */
     chat(messages: StoryMessage[]): Promise<StoryResponse>
-    /** Load persisted chat items */
-    load(): Promise<unknown[]>
-    /** Save chat items */
+    /** Load stories for a project */
+    load(projectId: string): Promise<unknown[]>
+    /** Save chat items (deprecated — use addMessage) */
     save(items: unknown[]): Promise<void>
+    /** Add a message to a story */
+    addMessage(storyId: string, role: string, content: string, order: number): Promise<unknown>
 }
 
 /**
@@ -67,9 +69,9 @@ export interface AiConfigAPI {
  */
 export interface TestsAPI {
     /** Load persisted test cases */
-    load(): Promise<TestCase[]>
+    load(projectId: string): Promise<TestCase[]>
     /** Save test cases */
-    save(items: TestCase[]): Promise<void>
+    save(projectId: string, items: TestCase[]): Promise<void>
     /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
     lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
     /** Sync: search workspace for test files matching [id] patterns */
@@ -81,15 +83,83 @@ export interface TestsAPI {
  */
 export interface SpecTestsAPI {
     /** Load persisted spec tests */
-    load(): Promise<SpecTest[]>
+    load(projectId: string): Promise<SpecTest[]>
     /** Save spec tests */
-    save(items: SpecTest[]): Promise<void>
+    save(projectId: string, items: SpecTest[]): Promise<void>
     /** Lookup syntax units by keyword in a file (scans file on-the-fly) */
     lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
     /** Load spec test groups */
-    loadGroups(): Promise<SpecTestGroup[]>
+    loadGroups(projectId: string): Promise<SpecTestGroup[]>
     /** Save spec test groups */
-    saveGroups(groups: SpecTestGroup[]): Promise<void>
+    saveGroups(projectId: string, groups: SpecTestGroup[]): Promise<void>
     /** Link: search workspace for test files matching [id] patterns */
     link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+}
+
+/**
+ * AuthAPI — exposed to renderer via contextBridge.
+ */
+export interface AuthAPI {
+    /** Login with email and password */
+    login(email: string, password: string): Promise<{ userId: string; userName: string; email: string }>
+    /** Register a new account */
+    register(email: string, password: string): Promise<{ userId: string; userName: string; email: string }>
+    /** Logout and clear session */
+    logout(): Promise<void>
+    /** Get current stored session */
+    getSession(): Promise<{ token: string; userId: string; userName: string; email: string } | null>
+    syncSession(data: { token: string; userId: string; userName: string; email: string }): Promise<void>
+}
+
+/**
+ * GitAPI — exposed to renderer via contextBridge.
+ */
+export interface GitAPI {
+    /** Get git status for the current workspace */
+    getStatus(): Promise<{
+        branch: string
+        commit: string
+        commitShort: string
+        changedFiles: number
+        dirty: boolean
+        version: string
+    } | null>
+    /** Get the remote origin URL for a workspace path */
+    getRemoteOrigin(workspacePath: string): Promise<string | null>
+}
+
+/**
+ * TeamAPI — exposed to renderer via contextBridge.
+ */
+export interface TeamAPI {
+    /** List teams the current user belongs to */
+    list(): Promise<{ id: string; name: string; slug: string }[]>
+    /** Ensure the user has at least one team (auto-create if needed) */
+    ensure(): Promise<{ id: string; name: string; slug: string }>
+}
+
+/**
+ * ProjectAPI — exposed to renderer via contextBridge.
+ */
+export interface ProjectAPI {
+    /** Find or create a project by slug (git remote origin) within a team */
+    ensure(teamId: string, slug: string, name: string): Promise<{ id: string; name: string; slug: string }>
+}
+
+/**
+ * TeamAiConfigAPI — exposed to renderer via contextBridge.
+ */
+export interface TeamAiConfigAPI {
+    /** List AI configs for a team */
+    list(teamId: string): Promise<{
+        id: string; teamId: string; provider: string; apiKey: string
+        baseUrl: string; models: string[]; isDefault: boolean
+    }[]>
+    /** Create or update an AI config */
+    upsert(data: {
+        id?: string; teamId: string; provider: string; apiKey: string
+        baseUrl?: string; models?: string[]; isDefault?: boolean
+    }): Promise<unknown>
+    /** Delete an AI config */
+    delete(id: string): Promise<void>
 }

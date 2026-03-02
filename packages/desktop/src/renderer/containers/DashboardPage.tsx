@@ -130,7 +130,7 @@ export function DashboardPage() {
                     <Card style={cardStyle} variant="borderless">
                         <Space align="start" size={16}>
                             <FileTextOutlined style={iconStyle('#13c2c2')} />
-                            <Statistic title="Total Lines" value={totalLines} valueStyle={{ fontSize: 24 }} />
+                            <Statistic title="Total Lines" value={totalLines} styles={{ content: { fontSize: 24 } }} />
                         </Space>
                     </Card>
                 </Col>

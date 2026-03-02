@@ -1,0 +1,1 @@
+ALTER TABLE "test_cases" RENAME TO "unit_tests";

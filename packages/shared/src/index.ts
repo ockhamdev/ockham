@@ -11,4 +11,4 @@ export type {
 export { IPC } from './ipc/channels'
 export type { IPCChannel } from './ipc/channels'
 export type { AddNotePayload, UpdateNotePayload } from './ipc/payloads'
-export type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI, SpecTestsAPI } from './ipc/api'
+export type { WorkspaceAPI, NotesAPI, CodeScanAPI, StoryAPI, AiConfigAPI, TestsAPI, SpecTestsAPI, AuthAPI, GitAPI, TeamAPI, ProjectAPI, TeamAiConfigAPI } from './ipc/api'

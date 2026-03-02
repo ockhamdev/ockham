@@ -13,7 +13,11 @@
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "dev:homepage": "pnpm --filter @ockham/homepage dev",
-    "dev:console": "pnpm --filter @ockham/console dev"
+    "dev:web": "pnpm --filter @ockham/web dev",
+    "db:generate": "pnpm --filter @ockham/web db:generate",
+    "db:migrate": "pnpm --filter @ockham/web db:migrate",
+    "db:push": "pnpm --filter @ockham/web db:push",
+    "db:studio": "pnpm --filter @ockham/web db:studio"
   },
   "engines": {
     "node": ">=18.0.0",

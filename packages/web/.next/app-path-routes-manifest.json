@@ -1,0 +1,18 @@
+{
+  "/(auth)/login/page": "/login",
+  "/(auth)/register/page": "/register",
+  "/(dashboard)/dashboard/knowledge/page": "/dashboard/knowledge",
+  "/(dashboard)/dashboard/notes/page": "/dashboard/notes",
+  "/(dashboard)/dashboard/page": "/dashboard",
+  "/(dashboard)/dashboard/projects/page": "/dashboard/projects",
+  "/(dashboard)/dashboard/settings/page": "/dashboard/settings",
+  "/(dashboard)/dashboard/spec-tests/page": "/dashboard/spec-tests",
+  "/(dashboard)/dashboard/stories/page": "/dashboard/stories",
+  "/(dashboard)/dashboard/teams/page": "/dashboard/teams",
+  "/(dashboard)/dashboard/tests/page": "/dashboard/tests",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/[...all]/route": "/api/auth/[...all]",
+  "/api/trpc/[trpc]/route": "/api/trpc/[trpc]",
+  "/page": "/"
+}

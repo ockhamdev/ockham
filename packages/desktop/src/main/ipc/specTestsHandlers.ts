@@ -3,134 +3,41 @@ import { IPC } from '@ockham/shared'
 import type { SpecTest, SpecTestGroup, SyntaxUnit } from '@ockham/shared'
 import { windowManager } from '../windowManager'
 import * as codescanStore from '../infrastructure/codescanStore'
+import { trpcQuery, trpcMutation } from '../infrastructure/apiClient'
 import * as fs from 'fs'
 import * as path from 'path'
 
-
-/**
- * Parse a spec test markdown file back into a SpecTest object.
- */
-function parseSpecTestMd(content: string): SpecTest | null {
-    const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-    if (!fmMatch) return null
-
-    const yamlBlock = fmMatch[1]
-    const description = fmMatch[2].trim()
-
-    const fields: Record<string, string> = {}
-    for (const line of yamlBlock.split('\n')) {
-        const colonIdx = line.indexOf(':')
-        if (colonIdx === -1) continue
-        const key = line.slice(0, colonIdx).trim()
-        const val = line.slice(colonIdx + 1).trim()
-        fields[key] = val
-    }
-
-    if (!fields.id) return null
-
-    // Parse units from JSON field
-    let units: SpecTest['units'] = []
-    if (fields.units) {
-        try {
-            units = JSON.parse(fields.units)
-        } catch {
-            units = []
-        }
-    }
-
-    return {
-        id: fields.id,
-        title: fields.title || '',
-        group: fields.group || 'default',
-        description,
-        units,
-        createdAt: fields.createdAt || '',
-    }
-}
-
-/**
- * Serialize a SpecTest to markdown with YAML frontmatter.
- */
-function serializeSpecTestMd(st: SpecTest): string {
-    const yaml = [
-        `id: ${st.id}`,
-        `title: ${st.title}`,
-        `group: ${st.group}`,
-        `units: ${JSON.stringify(st.units)}`,
-        `createdAt: ${st.createdAt}`,
-    ].join('\n')
-    return `---\n${yaml}\n---\n${st.description}\n`
-}
-
-/**
- * Get the directory for storing spec test cases.
- */
-function getTestsDir(ws: string): string {
-    return path.join(ws, '.ockham', 'spec-tests')
-}
-
-/**
- * Default group that always exists.
- */
-const DEFAULT_GROUP: SpecTestGroup = {
-    key: 'default',
-    name: 'Default',
-    preconditions: '',
-}
-
 /**
  * Register Spec Tests IPC handlers.
+ * CRUD operations use Web API; codescan lookups and test linking stay local.
  */
 export function registerSpecTestsHandlers(): void {
-    // ── Load all spec tests ──
-    ipcMain.handle(IPC.SPEC_TESTS_LOAD, async (event): Promise<SpecTest[]> => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) return []
-        const dir = getTestsDir(ws)
-        try {
-            if (!fs.existsSync(dir)) return []
-            const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'))
-            const results: SpecTest[] = []
-            for (const file of files) {
-                const content = fs.readFileSync(path.join(dir, file), 'utf-8')
-                const st = parseSpecTestMd(content)
-                if (st) results.push(st)
-            }
-            return results
-        } catch {
-            return []
-        }
+    // ── Load all spec tests from Web API ──
+    ipcMain.handle(IPC.SPEC_TESTS_LOAD, async (_event, projectId: string): Promise<SpecTest[]> => {
+        if (!projectId) return []
+        return trpcQuery<SpecTest[]>('testCase.listSpecTests', { projectId })
     })
 
-    // ── Save spec tests ──
-    ipcMain.handle(IPC.SPEC_TESTS_SAVE, async (event, items: SpecTest[]) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) throw new Error('No workspace selected')
-        const dir = getTestsDir(ws)
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
-        }
-
-        // Remove deleted files
-        const existingFiles = fs.readdirSync(dir).filter((f) => f.endsWith('.md'))
-        const newFileNames = new Set(items.map((st) => `${st.id}.md`))
-        for (const file of existingFiles) {
-            if (!newFileNames.has(file)) {
-                fs.unlinkSync(path.join(dir, file))
-            }
-        }
-
-        // Write all spec tests
+    // ── Save spec tests via Web API ──
+    ipcMain.handle(IPC.SPEC_TESTS_SAVE, async (_event, projectId: string, items: SpecTest[]) => {
         for (const st of items) {
-            fs.writeFileSync(
-                path.join(dir, `${st.id}.md`),
-                serializeSpecTestMd(st),
-                'utf-8'
-            )
+            if (st.id) {
+                await trpcMutation('testCase.updateSpecTest', {
+                    id: st.id,
+                    title: st.title,
+                    description: st.description,
+                })
+            } else {
+                await trpcMutation('testCase.createSpecTest', {
+                    projectId,
+                    title: st.title,
+                    description: st.description || '',
+                })
+            }
         }
     })
 
-    // ── Lookup syntax units by keyword ──
+    // ── Lookup syntax units by keyword — local codescan (unchanged) ──
     ipcMain.handle(
         IPC.SPEC_TESTS_LOOKUP_UNIT,
         async (event, filePath: string, keyword: string): Promise<SyntaxUnit[]> => {
@@ -170,48 +77,26 @@ export function registerSpecTestsHandlers(): void {
         }
     )
 
-    // ── Load groups ──
-    ipcMain.handle(IPC.SPEC_TESTS_LOAD_GROUPS, async (event): Promise<SpecTestGroup[]> => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) return [DEFAULT_GROUP]
-        const dir = getTestsDir(ws)
-        const groupsFile = path.join(dir, 'groups.json')
-        try {
-            if (fs.existsSync(groupsFile)) {
-                const content = fs.readFileSync(groupsFile, 'utf-8')
-                const groups: SpecTestGroup[] = JSON.parse(content)
-                // Ensure default group is always present
-                if (!groups.some((g) => g.key === 'default')) {
-                    groups.unshift(DEFAULT_GROUP)
-                }
-                return groups
-            }
-        } catch {
-            // ignore
-        }
-        return [DEFAULT_GROUP]
+    // ── Load groups from Web API ──
+    ipcMain.handle(IPC.SPEC_TESTS_LOAD_GROUPS, async (_event, projectId: string): Promise<SpecTestGroup[]> => {
+        if (!projectId) return []
+        return trpcQuery<SpecTestGroup[]>('testCase.listSpecTestGroups', { projectId })
     })
 
-    // ── Save groups ──
-    ipcMain.handle(IPC.SPEC_TESTS_SAVE_GROUPS, async (event, groups: SpecTestGroup[]) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) throw new Error('No workspace selected')
-        const dir = getTestsDir(ws)
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
+    // ── Save groups via Web API ──
+    ipcMain.handle(IPC.SPEC_TESTS_SAVE_GROUPS, async (_event, projectId: string, groups: SpecTestGroup[]) => {
+        for (const group of groups) {
+            await trpcMutation('testCase.createSpecTestGroup', {
+                projectId,
+                key: group.key,
+                name: group.name,
+                parentKey: group.parentKey || null,
+                preconditions: group.preconditions || '',
+            })
         }
-        // Ensure default group
-        if (!groups.some((g) => g.key === 'default')) {
-            groups.unshift(DEFAULT_GROUP)
-        }
-        fs.writeFileSync(
-            path.join(dir, 'groups.json'),
-            JSON.stringify(groups, null, 2),
-            'utf-8'
-        )
     })
 
-    // Link: search workspace test files for [id] patterns
+    // ── Link: search workspace test files — local (unchanged) ──
     ipcMain.handle(
         IPC.SPEC_TESTS_LINK,
         async (event, testIds: string[]): Promise<Record<string, { filePath: string; line: number }>> => {

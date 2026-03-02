@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { IPC } from '@ockham/shared'
 import type { AiConfig, StoryMessage, StoryResponse } from '@ockham/shared'
 import { callChat } from '@ockham/ai'
-import { windowManager } from '../windowManager'
+import { trpcQuery, trpcMutation } from '../infrastructure/apiClient'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -61,10 +61,8 @@ function saveAiConfig(config: AiConfig): void {
  * Register Story + AI Config IPC handlers.
  */
 export function registerStoryHandlers(): void {
-    ipcMain.handle(IPC.STORY_CHAT, async (event, messages: StoryMessage[]) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) throw new Error('No workspace selected')
-
+    // AI chat — stays local
+    ipcMain.handle(IPC.STORY_CHAT, async (_event, messages: StoryMessage[]) => {
         const config = loadAiConfig()
         if (!config.apiKey) {
             throw new Error('AI API key not configured. Please set it in AI Settings.')
@@ -77,7 +75,6 @@ export function registerStoryHandlers(): void {
 
         const result = await callChat(config, chatMessages, STORY_SYSTEM_PROMPT)
 
-        // Parse JSON response
         try {
             const jsonStr = result.content
                 .replace(/^```json?\s*/i, '')
@@ -102,33 +99,21 @@ export function registerStoryHandlers(): void {
         saveAiConfig(config)
     })
 
-    // ── Story persistence ────────────────────────────
+    // ── Story persistence via Web API ────────────────────────────
 
-    ipcMain.handle(IPC.STORY_LOAD, async (event) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) return []
-        const storiesPath = path.join(ws, '.ockham', 'stories.json')
-        try {
-            if (fs.existsSync(storiesPath)) {
-                return JSON.parse(fs.readFileSync(storiesPath, 'utf-8'))
-            }
-        } catch {
-            // ignore
-        }
-        return []
+    ipcMain.handle(IPC.STORY_LOAD, async (_event, projectId: string) => {
+        return trpcQuery('story.list', { projectId })
     })
 
-    ipcMain.handle(IPC.STORY_SAVE, async (event, items: unknown[]) => {
-        const ws = windowManager.getWorkspace(event.sender.id)
-        if (!ws) throw new Error('No workspace selected')
-        const dir = path.join(ws, '.ockham')
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
-        }
-        fs.writeFileSync(
-            path.join(dir, 'stories.json'),
-            JSON.stringify(items, null, 2),
-            'utf-8'
-        )
+    ipcMain.handle(IPC.STORY_SAVE, async (_event, _items: unknown[]) => {
+        // No longer used — individual mutations replace bulk save
+        // Kept for backward compatibility, does nothing
     })
+
+    ipcMain.handle(
+        IPC.STORY_ADD_MESSAGE,
+        async (_event, storyId: string, role: string, content: string, order: number) => {
+            return trpcMutation('story.addMessage', { storyId, role, content, order })
+        }
+    )
 }
