@@ -290,3 +290,17 @@ export const storyProposals = pgTable('story_proposals', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ── User Tokens (API / MCP Authorization) ─────────────
+
+export const userTokens = pgTable('user_tokens', {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),                           // e.g. "My MCP Token"
+    tokenHash: text('token_hash').notNull().unique(),       // SHA-256 of raw token
+    tokenPrefix: text('token_prefix').notNull(),            // e.g. "okt_a3b8d1b6" (display only)
+    scopes: text('scopes').notNull().default('[]'),         // JSON array: ["mcp:read","mcp:write"]
+    expiresAt: timestamp('expires_at', { withTimezone: true }),     // NULL = never expires
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }), // updated on each use
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),    // NULL = active
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

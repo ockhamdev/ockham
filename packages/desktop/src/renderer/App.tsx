@@ -22,6 +22,7 @@ import {
     TeamOutlined,
     PlusOutlined,
     BugOutlined,
+    KeyOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -38,6 +39,7 @@ import { KnowledgeBasePage } from './containers/KnowledgeBasePage'
 import { IssuesPage } from './containers/IssuesPage'
 import { ProjectKnowledgePage } from './containers/ProjectKnowledgePage'
 import { ProposalsPage } from './containers/ProposalsPage'
+import { TokensPage } from './containers/TokensPage'
 import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam, ensureProject, type Project } from './api'
 import './styles/global.css'
 
@@ -316,6 +318,14 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                                     label: 'Close Project',
                                     onClick: onCloseProject,
                                 },
+                                { type: 'divider' as const },
+                                {
+                                    key: 'tokens',
+                                    icon: <KeyOutlined />,
+                                    label: 'API Tokens',
+                                    onClick: () => navigate('/tokens'),
+                                },
+                                { type: 'divider' as const },
                                 {
                                     key: 'logout',
                                     icon: <LogoutOutlined />,
@@ -375,6 +385,7 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                                 ? <ProposalsPage projectId={currentProject.id} />
                                 : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
                         } />
+                        <Route path="/tokens" element={<TokensPage />} />
                     </Routes>
                 </Content>
                 <StatusBar />

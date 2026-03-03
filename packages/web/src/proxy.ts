@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
  * Next.js middleware to handle CORS for API routes.
  * Allows the Electron renderer (localhost:5173) to make direct HTTP calls.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     // Handle CORS preflight (OPTIONS) requests
     if (request.method === 'OPTIONS') {
         return new NextResponse(null, {

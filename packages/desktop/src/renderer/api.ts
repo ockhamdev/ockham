@@ -574,3 +574,42 @@ export async function reviewStoryProposal(id: string, action: 'approve' | 'rejec
 export async function deleteStoryProposal(id: string): Promise<void> {
     await trpcMutation('story.deleteProposal', { id })
 }
+
+// ── User Tokens ──
+
+export type TokenScope = 'mcp:read' | 'mcp:write' | 'api:read' | 'api:write'
+
+export interface UserTokenListItem {
+    id: string
+    name: string
+    tokenPrefix: string
+    scopes: TokenScope[]
+    expiresAt: string | null
+    lastUsedAt: string | null
+    revokedAt: string | null
+    createdAt: string
+    isExpired: boolean
+    isRevoked: boolean
+}
+
+export interface UserTokenCreateResult extends UserTokenListItem {
+    rawToken: string
+}
+
+export async function createUserToken(data: {
+    name: string; scopes?: TokenScope[]; expiresInDays?: number
+}): Promise<UserTokenCreateResult> {
+    return trpcMutation<UserTokenCreateResult>('userToken.create', data)
+}
+
+export async function listUserTokens(): Promise<UserTokenListItem[]> {
+    return trpcQuery<UserTokenListItem[]>('userToken.list', undefined)
+}
+
+export async function revokeUserToken(id: string): Promise<void> {
+    await trpcMutation('userToken.revoke', { id })
+}
+
+export async function deleteUserToken(id: string): Promise<void> {
+    await trpcMutation('userToken.delete', { id })
+}
