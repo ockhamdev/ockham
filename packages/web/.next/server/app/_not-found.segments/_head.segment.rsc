@@ -1,5 +1,0 @@
-1:"$Sreact.fragment"
-2:I[77536,["/_next/static/chunks/50a8236bd58d6060.js","/_next/static/chunks/b22ba91a7e8e6ae1.js","/_next/static/chunks/1e4e04f8b836eeb9.js","/_next/static/chunks/e7ef2e6e2f4d4e3e.js"],"ViewportBoundary"]
-3:I[77536,["/_next/static/chunks/50a8236bd58d6060.js","/_next/static/chunks/b22ba91a7e8e6ae1.js","/_next/static/chunks/1e4e04f8b836eeb9.js","/_next/static/chunks/e7ef2e6e2f4d4e3e.js"],"MetadataBoundary"]
-4:"$Sreact.suspense"
-0:{"buildId":"dIwZwS8BZHnnKuZAzrTvZ","rsc":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Ockham Console"}],["$","meta","1",{"name":"description","content":"Ockham Web Console — Team Collaboration Platform"}]]}]}]}],null]}],"loading":null,"isPartial":false}
