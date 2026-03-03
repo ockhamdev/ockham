@@ -1,9 +1,150 @@
-import React, { useEffect, useState } from 'react'
-import { Card, Tabs, Typography, Form, Input, Button, Table, Popconfirm, Switch, Space, Spin, App as AntdApp } from 'antd'
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
-import { listAiConfigs, upsertAiConfig, deleteAiConfig, type TeamAiConfig, type Team } from '../api'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Card, Tabs, Typography, Form, Input, Button, Table, Popconfirm, Switch, Space, Spin, App as AntdApp, Tag, Alert } from 'antd'
+import { DeleteOutlined, EditOutlined, PlusOutlined, UndoOutlined, SaveOutlined } from '@ant-design/icons'
+import {
+    listAiConfigs, upsertAiConfig, deleteAiConfig, type TeamAiConfig, type Team,
+    getPromptTemplate, savePromptTemplate, resetPromptTemplate, type PromptTemplateType,
+} from '../api'
 
 const { Title, Text } = Typography
+const { TextArea } = Input
+
+// ── Available variables reference ──
+
+const UNIT_TEST_VARIABLES = [
+    { name: '{{testId}}', desc: 'Test case ID' },
+    { name: '{{filePath}}', desc: 'Source file path' },
+    { name: '{{keyword}}', desc: 'Syntax unit keyword' },
+    { name: '{{description}}', desc: 'Test requirements' },
+    { name: '{{sourceSnippet}}', desc: 'Source code of the syntax unit' },
+]
+
+const SPEC_TEST_VARIABLES = [
+    { name: '{{testId}}', desc: 'Spec test ID' },
+    { name: '{{title}}', desc: 'Spec test title' },
+    { name: '{{groupPath}}', desc: 'Group hierarchy path (e.g. Auth › Login)' },
+    { name: '{{preconditionSection}}', desc: 'Inherited group preconditions (markdown)' },
+    { name: '{{requirementsSection}}', desc: 'Test requirements section (markdown)' },
+    { name: '{{sourceSnippets}}', desc: 'All referenced syntax units\' source code' },
+]
+
+// ── Prompt Template Editor sub-component ──
+
+function PromptTemplateEditor({ teamId, type, label }: { teamId: string; type: PromptTemplateType; label: string }) {
+    const [template, setTemplate] = useState('')
+    const [isCustom, setIsCustom] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const { message } = AntdApp.useApp()
+
+    const variables = type === 'unit_test' ? UNIT_TEST_VARIABLES : SPEC_TEST_VARIABLES
+
+    const loadTemplate = useCallback(async () => {
+        setLoading(true)
+        try {
+            const result = await getPromptTemplate(teamId, type)
+            setTemplate(result.template)
+            setIsCustom(result.isCustom)
+        } catch {
+            setTemplate('')
+        }
+        setLoading(false)
+    }, [teamId, type])
+
+    useEffect(() => { loadTemplate() }, [loadTemplate])
+
+    const handleSave = async () => {
+        setSaving(true)
+        try {
+            await savePromptTemplate(teamId, type, template)
+            setIsCustom(true)
+            message.success(`${label} template saved`)
+        } catch (err: unknown) {
+            message.error((err as Error).message || 'Failed to save')
+        }
+        setSaving(false)
+    }
+
+    const handleReset = async () => {
+        setSaving(true)
+        try {
+            const result = await resetPromptTemplate(teamId, type)
+            setTemplate(result.template)
+            setIsCustom(false)
+            message.success(`${label} template reset to default`)
+        } catch (err: unknown) {
+            message.error((err as Error).message || 'Failed to reset')
+        }
+        setSaving(false)
+    }
+
+    if (loading) {
+        return <div style={{ textAlign: 'center', padding: 48 }}><Spin /></div>
+    }
+
+    return (
+        <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ flex: 1 }}>
+                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Space>
+                        <Text strong>{label} Prompt Template</Text>
+                        {isCustom ? (
+                            <Tag color="blue">Custom</Tag>
+                        ) : (
+                            <Tag color="default">Default</Tag>
+                        )}
+                    </Space>
+                    <Space>
+                        {isCustom && (
+                            <Popconfirm title="Reset to default template?" onConfirm={handleReset}>
+                                <Button size="small" icon={<UndoOutlined />} loading={saving}>
+                                    Reset
+                                </Button>
+                            </Popconfirm>
+                        )}
+                        <Button type="primary" size="small" icon={<SaveOutlined />} onClick={handleSave} loading={saving}>
+                            Save
+                        </Button>
+                    </Space>
+                </div>
+                <TextArea
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    rows={24}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+            </div>
+            <div style={{ width: 240, flexShrink: 0 }}>
+                <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                    Available Variables
+                </Text>
+                <div style={{
+                    background: 'var(--ant-color-bg-layout)',
+                    borderRadius: 8,
+                    border: '1px solid var(--ant-color-border)',
+                    padding: 12,
+                }}>
+                    {variables.map((v) => (
+                        <div key={v.name} style={{ marginBottom: 8 }}>
+                            <Text code style={{ fontSize: 11 }}>{v.name}</Text>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: 11 }}>{v.desc}</Text>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginTop: 12, fontSize: 12 }}
+                    message="Use {{variable}} syntax in the template. Variables will be replaced when generating prompts."
+                />
+            </div>
+        </div>
+    )
+}
+
+// ── Main Component ──
 
 interface TeamSettingsPageProps {
     currentTeam: Team
@@ -108,7 +249,7 @@ export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
     ]
 
     return (
-        <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
             <Title level={3}>Team Settings</Title>
 
             <Tabs
@@ -187,6 +328,39 @@ export function TeamSettingsPage({ currentTeam }: TeamSettingsPageProps) {
                                     )}
                                 </Card>
                             </Space>
+                        ),
+                    },
+                    {
+                        key: 'prompts',
+                        label: 'Prompt Templates',
+                        children: (
+                            <Tabs
+                                type="card"
+                                items={[
+                                    {
+                                        key: 'unit_test',
+                                        label: 'Unit Test',
+                                        children: (
+                                            <PromptTemplateEditor
+                                                teamId={currentTeam.id}
+                                                type="unit_test"
+                                                label="Unit Test"
+                                            />
+                                        ),
+                                    },
+                                    {
+                                        key: 'spec_test',
+                                        label: 'Spec Test',
+                                        children: (
+                                            <PromptTemplateEditor
+                                                teamId={currentTeam.id}
+                                                type="spec_test"
+                                                label="Spec Test"
+                                            />
+                                        ),
+                                    },
+                                ]}
+                            />
                         ),
                     },
                 ]}

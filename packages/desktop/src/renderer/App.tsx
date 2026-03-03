@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as antTheme, Select, Space, Spin, App as AntdApp, Modal, Form, Input } from 'antd'
+import { ConfigProvider, Layout, Menu, Dropdown, Button, Typography, theme as antTheme, Select, Space, Spin, App as AntdApp, Modal, Form, Input, Tabs } from 'antd'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
     CodeOutlined,
@@ -21,6 +21,7 @@ import {
     SettingOutlined,
     TeamOutlined,
     PlusOutlined,
+    BugOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -34,7 +35,9 @@ import { LoginPage } from './containers/LoginPage'
 import { StatusBar } from './components/StatusBar'
 import { TeamSettingsPage } from './containers/TeamSettingsPage'
 import { KnowledgeBasePage } from './containers/KnowledgeBasePage'
-import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam } from './api'
+import { IssuesPage } from './containers/IssuesPage'
+import { ProjectKnowledgePage } from './containers/ProjectKnowledgePage'
+import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam, ensureProject, type Project } from './api'
 import './styles/global.css'
 
 const { Sider, Content, Header } = Layout
@@ -53,12 +56,13 @@ interface AppLayoutProps {
     onLogout: () => void
     onCloseProject: () => void
     currentTeam: { id: string; name: string; slug: string } | null
+    currentProject: Project | null
     teams: { id: string; name: string; slug: string }[]
     onSwitchTeam: (teamId: string) => void
     onCreateTeam: (name: string) => Promise<void>
 }
 
-function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onCloseProject, currentTeam, teams, onSwitchTeam, onCreateTeam }: AppLayoutProps) {
+function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onCloseProject, currentTeam, currentProject, teams, onSwitchTeam, onCreateTeam }: AppLayoutProps) {
     const [collapsed, setCollapsed] = useState(false)
     const navigate = useNavigate()
     const location = useLocation()
@@ -72,6 +76,7 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
             icon: <DashboardOutlined />,
             label: 'Dashboard',
         },
+        { type: 'divider' as const },
         {
             key: '/story',
             icon: <BookOutlined />,
@@ -92,20 +97,40 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
             icon: <FileProtectOutlined />,
             label: 'Spec Tests',
         },
+        { type: 'divider' as const },
+        {
+            key: '/issues',
+            icon: <BugOutlined />,
+            label: 'Issues',
+        },
+        {
+            key: '/project-knowledge',
+            icon: <ReadOutlined />,
+            label: 'Knowledge',
+        },
     ]
 
     const teamMenuItems = [
         {
-            key: '/knowledge',
-            icon: <ReadOutlined />,
-            label: 'Knowledge Base',
-        },
-        {
-            key: '/settings',
+            key: '__team_settings__',
             icon: <SettingOutlined />,
             label: 'Team Settings',
         },
     ]
+
+    const handleTeamMenuClick = ({ key }: { key: string }) => {
+        if (key === '__team_settings__') {
+            const width = 960
+            const height = 700
+            const left = Math.round((window.screen.width - width) / 2)
+            const top = Math.round((window.screen.height - height) / 2)
+            window.open(
+                `${window.location.pathname}${window.location.search}#/team-settings-window`,
+                'team-settings',
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no`,
+            )
+        }
+    }
 
     const themeMenuItems = themeOptions.map((opt) => ({
         key: opt.key,
@@ -194,9 +219,9 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                     <div style={{ flex: 1 }} />
                     <Menu
                         mode="inline"
-                        selectedKeys={[location.pathname]}
+                        selectedKeys={[]}
                         items={teamMenuItems}
-                        onClick={({ key }) => navigate(key)}
+                        onClick={handleTeamMenuClick}
                         style={{ borderRight: 0, flex: 'none' }}
                     />
                 </div>
@@ -312,14 +337,14 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                         <Route path="/story" element={<StoryPage />} />
                         <Route path="/unit-tests" element={<UnitTestsPage />} />
                         <Route path="/spec-tests" element={<SpecTestsPage />} />
-                        <Route path="/knowledge" element={
-                            currentTeam
-                                ? <KnowledgeBasePage currentTeam={currentTeam} />
+                        <Route path="/issues" element={
+                            currentProject
+                                ? <IssuesPage projectId={currentProject.id} />
                                 : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
                         } />
-                        <Route path="/settings" element={
-                            currentTeam
-                                ? <TeamSettingsPage currentTeam={currentTeam} />
+                        <Route path="/project-knowledge" element={
+                            currentProject
+                                ? <ProjectKnowledgePage projectId={currentProject.id} />
                                 : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
                         } />
                     </Routes>
@@ -330,6 +355,47 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
     )
 }
 
+// ── Standalone Team Settings Window ──
+
+function TeamSettingsWindow() {
+    const [team, setTeam] = useState<{ id: string; name: string; slug: string } | null>(null)
+
+    useEffect(() => {
+        const cached = localStorage.getItem('ockham_current_team')
+        if (cached) {
+            try { setTeam(JSON.parse(cached)) } catch { /* */ }
+        }
+    }, [])
+
+    if (!team) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin size="large" />
+            </div>
+        )
+    }
+
+    return (
+        <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
+            <Tabs
+                defaultActiveKey="settings"
+                items={[
+                    {
+                        key: 'settings',
+                        label: 'Team Settings',
+                        children: <TeamSettingsPage currentTeam={team} />,
+                    },
+                    {
+                        key: 'knowledge',
+                        label: 'Knowledge Base',
+                        children: <KnowledgeBasePage currentTeam={team} />,
+                    },
+                ]}
+            />
+        </div>
+    )
+}
+
 export default function App() {
     const { resolvedTheme } = useTheme()
     const { currentWorkspace, recentWorkspaces, loading, openWorkspace, closeWorkspace, removeRecent } = useWorkspace()
@@ -337,6 +403,7 @@ export default function App() {
     const [authLoading, setAuthLoading] = useState(true)
     const [teams, setTeams] = useState<{ id: string; name: string; slug: string }[]>([])
     const [currentTeam, setCurrentTeam] = useState<{ id: string; name: string; slug: string } | null>(null)
+    const [currentProject, setCurrentProject] = useState<Project | null>(null)
     const [createTeamModalOpen, setCreateTeamModalOpen] = useState(false)
     const [createTeamForm] = Form.useForm()
 
@@ -370,6 +437,18 @@ export default function App() {
         }
         init()
     }, [])
+
+    // Auto-resolve project from team + workspace
+    useEffect(() => {
+        if (!currentTeam || !currentWorkspace) {
+            setCurrentProject(null)
+            return
+        }
+        const slug = currentWorkspace.split('/').pop() || currentWorkspace
+        ensureProject(currentTeam.id, slug, slug)
+            .then((proj) => setCurrentProject(proj))
+            .catch((err) => console.warn('[App] Project resolve failed:', err))
+    }, [currentTeam, currentWorkspace])
 
     const handleCreateTeam = async (values: { name: string }) => {
         const slug = values.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -409,81 +488,90 @@ export default function App() {
         <ConfigProvider theme={antdTheme}>
             <AntdApp>
                 <HashRouter>
-                    {!session ? (
-                        <LoginPage onLoginSuccess={async (s) => {
-                            setSession({ userId: s.userId, userName: s.userName, email: s.email })
-                            // Token already saved to localStorage by api.ts login
-                            try {
-                                const team = await ensureTeam()
-                                setCurrentTeam(team)
-                                localStorage.setItem('ockham_current_team', JSON.stringify(team))
-                                const list = await listTeams()
-                                setTeams(list)
-                                localStorage.setItem('ockham_teams', JSON.stringify(list))
-                            } catch { /* non-blocking */ }
-                        }} />
-                    ) : !currentWorkspace ? (
-                        <WelcomePage
-                            recentWorkspaces={recentWorkspaces}
-                            openWorkspace={openWorkspace}
-                            removeRecent={removeRecent}
-                        />
-                    ) : (
-                        <AppLayout
-                            currentWorkspace={currentWorkspace}
-                            openWorkspace={openWorkspace}
-                            session={session}
-                            onLogout={() => {
-                                apiLogout()
-                                setSession(null)
-                                setCurrentTeam(null)
-                                setTeams([])
-                            }}
-                            onCloseProject={closeWorkspace}
-                            currentTeam={currentTeam}
-                            teams={teams}
-                            onSwitchTeam={(teamId) => {
-                                const t = teams.find((team) => team.id === teamId)
-                                if (t) {
-                                    setCurrentTeam(t)
-                                    localStorage.setItem('ockham_current_team', JSON.stringify(t))
-                                }
-                            }}
-                            onCreateTeam={async () => {
-                                setCreateTeamModalOpen(true)
-                            }}
-                        />
-                    )}
+                    <Routes>
+                        <Route path="/team-settings-window" element={<TeamSettingsWindow />} />
+                        <Route path="*" element={
+                            <>
+                                {!session ? (
+                                    <LoginPage onLoginSuccess={async (s) => {
+                                        setSession({ userId: s.userId, userName: s.userName, email: s.email })
+                                        try {
+                                            const team = await ensureTeam()
+                                            setCurrentTeam(team)
+                                            localStorage.setItem('ockham_current_team', JSON.stringify(team))
+                                            const list = await listTeams()
+                                            setTeams(list)
+                                            localStorage.setItem('ockham_teams', JSON.stringify(list))
+                                        } catch { /* non-blocking */ }
+                                    }} />
+                                ) : !currentWorkspace ? (
+                                    <WelcomePage
+                                        recentWorkspaces={recentWorkspaces}
+                                        openWorkspace={openWorkspace}
+                                        removeRecent={removeRecent}
+                                    />
+                                ) : (
+                                    <AppLayout
+                                        currentWorkspace={currentWorkspace}
+                                        openWorkspace={openWorkspace}
+                                        session={session}
+                                        onLogout={() => {
+                                            apiLogout()
+                                            setSession(null)
+                                            setCurrentTeam(null)
+                                            setCurrentProject(null)
+                                            setTeams([])
+                                        }}
+                                        onCloseProject={closeWorkspace}
+                                        currentTeam={currentTeam}
+                                        currentProject={currentProject}
+                                        teams={teams}
+                                        onSwitchTeam={(teamId) => {
+                                            const t = teams.find((team) => team.id === teamId)
+                                            if (t) {
+                                                setCurrentTeam(t)
+                                                localStorage.setItem('ockham_current_team', JSON.stringify(t))
+                                            }
+                                        }}
+                                        onCreateTeam={async () => {
+                                            setCreateTeamModalOpen(true)
+                                        }}
+                                    />
+                                )}
 
-                    <Modal
-                        title="Create Team"
-                        open={createTeamModalOpen}
-                        onCancel={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}
-                        footer={null}
-                        destroyOnClose
-                    >
-                        <Form form={createTeamForm} layout="vertical" onFinish={handleCreateTeam}>
-                            <Form.Item
-                                name="name"
-                                label="Team Name"
-                                rules={[{ required: true, message: 'Please enter a team name' }]}
-                            >
-                                <Input placeholder="e.g. Engineering, Design..." />
-                            </Form.Item>
-                            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                                <Space>
-                                    <Button onClick={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}>
-                                        Cancel
-                                    </Button>
-                                    <Button type="primary" htmlType="submit">
-                                        Create
-                                    </Button>
-                                </Space>
-                            </Form.Item>
-                        </Form>
-                    </Modal>
+                                <Modal
+                                    title="Create Team"
+                                    open={createTeamModalOpen}
+                                    onCancel={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}
+                                    footer={null}
+                                    destroyOnClose
+                                >
+                                    <Form form={createTeamForm} layout="vertical" onFinish={handleCreateTeam}>
+                                        <Form.Item
+                                            name="name"
+                                            label="Team Name"
+                                            rules={[{ required: true, message: 'Please enter a team name' }]}
+                                        >
+                                            <Input placeholder="e.g. Engineering, Design..." />
+                                        </Form.Item>
+                                        <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                                            <Space>
+                                                <Button onClick={() => { setCreateTeamModalOpen(false); createTeamForm.resetFields() }}>
+                                                    Cancel
+                                                </Button>
+                                                <Button type="primary" htmlType="submit">
+                                                    Create
+                                                </Button>
+                                            </Space>
+                                        </Form.Item>
+                                    </Form>
+                                </Modal>
+                            </>
+                        } />
+                    </Routes>
                 </HashRouter>
             </AntdApp>
         </ConfigProvider>
     )
 }
+

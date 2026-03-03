@@ -34,6 +34,7 @@ import type { DataNode } from 'antd/es/tree'
 import type { SpecTest, SpecTestUnit, SpecTestGroup, SyntaxUnit } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
+import { getPromptTemplate } from '../api'
 import '../styles/spec-group-tree.css'
 
 const { Title, Text } = Typography
@@ -1006,34 +1007,26 @@ export function SpecTestsPage() {
                 return path.join(' › ')
             })()
 
-            const prompt = `## Spec Test Generation
+            // Load template from DB
+            const storedTeam = localStorage.getItem('ockham_current_team')
+            const teamId = storedTeam ? JSON.parse(storedTeam).id : null
+            let templateStr: string
+            if (teamId) {
+                const result = await getPromptTemplate(teamId, 'spec_test')
+                templateStr = result.template
+            } else {
+                templateStr = ''
+            }
 
-Please write a spec/integration test that verifies the collaborative behavior of the following syntax units.
+            // Interpolate variables
+            const prompt = templateStr
+                .replace(/\{\{testId\}\}/g, st.id)
+                .replace(/\{\{title\}\}/g, st.title)
+                .replace(/\{\{groupPath\}\}/g, groupPath)
+                .replace(/\{\{preconditionSection\}\}/g, preconditionSection)
+                .replace(/\{\{requirementsSection\}\}/g, requirementsSection)
+                .replace(/\{\{sourceSnippets\}\}/g, snippets.join('\n\n'))
 
-### Test Metadata
-- **Test ID**: \`${st.id}\`
-- **Title**: ${st.title}
-- **Group**: ${groupPath}
-${preconditionSection}${requirementsSection}
-### Referenced Syntax Units
-
-${snippets.join('\n\n')}
-
-### Instructions
-1. Use \`@playwright/test\` as the test framework (\`test\`, \`expect\`, \`Page\`).  
-   If the project has not yet configured \`@playwright/test\`, initialize the environment first:
-   \`\`\`bash
-   pnpm add -D @playwright/test
-   npx playwright install
-   \`\`\`
-2. The test file should be placed in the \`tests/\` directory located at the same level as the nearest \`tsconfig.json\` relative to the source file being tested.
-3. The \`test.describe\` block description **MUST** use the format: \`[${st.id}] ${st.title}\`
-4. All test cases must comply with the **Group Preconditions** defined above (if any). Abstract reusable setup logic (e.g. login, database initialization) into shared fixtures or helper functions.
-5. Test the **collaborative behavior** between the listed syntax units.
-6. Mock external dependencies as needed.
-7. Cover edge cases and error handling.
-8. Do **NOT** write the test code immediately. First propose the test logic and cases, then wait for user confirmation.
-`
             setPromptText(prompt)
             setShowPromptModal(true)
         } catch {

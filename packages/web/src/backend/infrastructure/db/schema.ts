@@ -189,3 +189,47 @@ export const specTestUnits = pgTable('spec_test_units', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ── Issue ─────────────────────────────────────────────
+
+export const issuePriorityEnum = pgEnum('issue_priority', ['low', 'medium', 'high', 'critical'])
+export const issueStatusEnum = pgEnum('issue_status', ['open', 'in_progress', 'resolved', 'closed'])
+
+export const issues = pgTable('issues', {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+    status: issueStatusEnum('status').notNull().default('open'),
+    priority: issuePriorityEnum('priority').notNull().default('medium'),
+    assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
+    createdBy: uuid('created_by').notNull().references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ── Project Knowledge ─────────────────────────────────
+
+export const projectKnowledgeEntries = pgTable('project_knowledge_entries', {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    content: text('content').notNull().default(''),
+    createdBy: uuid('created_by').notNull().references(() => users.id),
+    updatedBy: uuid('updated_by').notNull().references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ── Prompt Templates ──────────────────────────────────
+
+export const promptTemplateTypeEnum = pgEnum('prompt_template_type', ['unit_test', 'spec_test'])
+
+export const promptTemplates = pgTable('prompt_templates', {
+    id: uuid('id').primaryKey(),
+    teamId: uuid('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+    type: promptTemplateTypeEnum('type').notNull(),
+    template: text('template').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})

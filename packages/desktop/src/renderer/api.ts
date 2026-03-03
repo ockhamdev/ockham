@@ -169,6 +169,20 @@ export async function listTeams(): Promise<Team[]> {
     return trpcQuery<Team[]>('team.list', undefined)
 }
 
+// ── Project ──
+
+export interface Project {
+    id: string
+    teamId: string
+    name: string
+    slug: string
+    description: string
+}
+
+export async function ensureProject(teamId: string, slug: string, name: string): Promise<Project> {
+    return trpcMutation<Project>('project.ensureBySlug', { teamId, slug, name })
+}
+
 // ── Team AI Config ──
 
 export interface TeamAiConfig {
@@ -233,4 +247,102 @@ export async function updateKnowledgeEntry(data: {
 
 export async function deleteKnowledgeEntry(id: string): Promise<void> {
     await trpcMutation('knowledgeEntry.delete', { id })
+}
+
+// ── Issues ──
+
+export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type IssuePriority = 'low' | 'medium' | 'high' | 'critical'
+
+export interface Issue {
+    id: string
+    projectId: string
+    title: string
+    description: string
+    status: IssueStatus
+    priority: IssuePriority
+    assigneeId: string | null
+    createdBy: string
+    createdAt: string
+    updatedAt: string
+}
+
+export async function listIssues(projectId: string): Promise<Issue[]> {
+    return trpcQuery<Issue[]>('issue.list', { projectId })
+}
+
+export async function createIssue(data: {
+    projectId: string; title: string; description?: string; priority?: IssuePriority
+}): Promise<Issue> {
+    return trpcMutation<Issue>('issue.create', data)
+}
+
+export async function updateIssue(data: {
+    id: string; title?: string; description?: string
+    priority?: IssuePriority; assigneeId?: string | null
+}): Promise<Issue> {
+    return trpcMutation<Issue>('issue.update', data)
+}
+
+export async function transitionIssue(id: string, action: 'start' | 'resolve' | 'close' | 'reopen'): Promise<Issue> {
+    return trpcMutation<Issue>('issue.transition', { id, action })
+}
+
+export async function deleteIssue(id: string): Promise<void> {
+    await trpcMutation('issue.delete', { id })
+}
+
+// ── Project Knowledge ──
+
+export interface ProjectKnowledgeEntry {
+    id: string
+    projectId: string
+    title: string
+    content: string
+    createdBy: string
+    updatedBy: string
+    createdAt: string
+    updatedAt: string
+}
+
+export async function listProjectKnowledge(projectId: string): Promise<ProjectKnowledgeEntry[]> {
+    return trpcQuery<ProjectKnowledgeEntry[]>('projectKnowledge.list', { projectId })
+}
+
+export async function createProjectKnowledge(data: {
+    projectId: string; title: string; content?: string
+}): Promise<ProjectKnowledgeEntry> {
+    return trpcMutation<ProjectKnowledgeEntry>('projectKnowledge.create', data)
+}
+
+export async function updateProjectKnowledge(data: {
+    id: string; title?: string; content?: string
+}): Promise<ProjectKnowledgeEntry> {
+    return trpcMutation<ProjectKnowledgeEntry>('projectKnowledge.update', data)
+}
+
+export async function deleteProjectKnowledge(id: string): Promise<void> {
+    await trpcMutation('projectKnowledge.delete', { id })
+}
+
+// ── Prompt Templates ──
+
+export type PromptTemplateType = 'unit_test' | 'spec_test'
+
+export interface PromptTemplateResult {
+    template: string
+    isCustom: boolean
+    id: string | null
+}
+
+export async function getPromptTemplate(teamId: string, type: PromptTemplateType): Promise<PromptTemplateResult> {
+    return trpcQuery<PromptTemplateResult>('promptTemplate.get', { teamId, type })
+}
+
+export async function savePromptTemplate(teamId: string, type: PromptTemplateType, template: string): Promise<void> {
+    await trpcMutation('promptTemplate.save', { teamId, type, template })
+}
+
+export async function resetPromptTemplate(teamId: string, type: PromptTemplateType): Promise<{ template: string }> {
+    return trpcMutation<{ template: string }>('promptTemplate.reset', { teamId, type })
 }

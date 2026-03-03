@@ -33,6 +33,7 @@ import {
 import type { TestCase, SyntaxUnit, SpecTest, SpecTestGroup } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
+import { getPromptTemplate } from '../api'
 
 const { Title, Text } = Typography
 
@@ -492,46 +493,26 @@ function TestsPage() {
                 }
             }
 
-            const prompt = `## Unit Test Generation
+            // Load template from DB
+            const storedTeam = localStorage.getItem('ockham_current_team')
+            const teamId = storedTeam ? JSON.parse(storedTeam).id : null
+            let templateStr: string
+            if (teamId) {
+                const result = await getPromptTemplate(teamId, 'unit_test')
+                templateStr = result.template
+            } else {
+                // Fallback: server returns default when no custom exists
+                templateStr = ''
+            }
 
-Please write a unit test for the following code using **Vitest** framework.
+            // Interpolate variables
+            const prompt = templateStr
+                .replace(/\{\{testId\}\}/g, tc.id)
+                .replace(/\{\{filePath\}\}/g, filePath)
+                .replace(/\{\{keyword\}\}/g, kw)
+                .replace(/\{\{description\}\}/g, tc.description || '')
+                .replace(/\{\{sourceSnippet\}\}/g, sourceSnippet)
 
-### Test Metadata
-- **Test ID**: \`${tc.id}\`
-- **File Path**: \`${filePath}\`
-- **Keyword**: \`${kw}\`
-
-### Requirements
-${tc.description}
-
-### Implementation Source
-\`\`\`typescript
-${sourceSnippet}
-\`\`\`
-
-### Requirements
-1. Use \`vitest\` as the test framework (\`describe\`, \`test\`, \`expect\`)
-2. The \`describe\` block description MUST use format: \`[${tc.id}] <descriptive name>\`
-   - The ID prefix \`[${tc.id}]\` is mandatory for linking test results back to this test case
-   - Generate a clear, descriptive name based on the keyword \`${kw}\` (do NOT just use the keyword literally)
-3. Use \`test()\` for each individual test case inside the \`describe\` block
-4. Example structure:
-\`\`\`typescript
-describe('[${tc.id}] <descriptive name based on ${kw}>', () => {
-  test('should ...', () => {
-    // ...
-  })
-  test('should handle edge case', () => {
-    // ...
-  })
-})
-\`\`\`
-5. Write test cases that verify the behavior described above
-6. Use \`test()\` for unique individual cases; use \`test.each()\` for parameterized/data-driven scenarios with multiple input-output pairs
-7. Mock external dependencies as needed
-8. Cover edge cases and error handling
-9. Do NOT write the test code immediately. First propose the test logic and cases, then wait for user confirmation before writing the actual test implementation
-`
             setPromptText(prompt)
             setShowPromptModal(true)
         } catch {

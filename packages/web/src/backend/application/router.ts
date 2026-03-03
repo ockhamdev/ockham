@@ -6,6 +6,9 @@ import { storyRouter } from './story.router'
 import { testCaseRouter } from './test-case.router'
 import { teamAiConfigRouter } from './team-ai-config.router'
 import { knowledgeEntryRouter } from './knowledge-entry.router'
+import { issueRouter } from './issue.router'
+import { projectKnowledgeRouter } from './project-knowledge.router'
+import { promptTemplateRouter } from './prompt-template.router'
 
 /**
  * 根 tRPC 路由器
@@ -18,6 +21,11 @@ export const appRouter = router({
     testCase: testCaseRouter,
     teamAiConfig: teamAiConfigRouter,
     knowledgeEntry: knowledgeEntryRouter,
+    issue: issueRouter,
+    projectKnowledge: projectKnowledgeRouter,
+    promptTemplate: promptTemplateRouter,
 })
 
 export type AppRouter = typeof appRouter
+
+
