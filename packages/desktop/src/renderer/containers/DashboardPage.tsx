@@ -11,16 +11,14 @@ import {
     CheckCircleOutlined,
 } from '@ant-design/icons'
 import type { ScanResult, TestCase, SpecTest, SpecTestGroup } from '@ockham/shared'
-import type { CodeScanAPI, TestsAPI, SpecTestsAPI, StoryAPI } from '@ockham/shared'
+import type { CodeScanAPI } from '@ockham/shared'
+import { listTestCases, listSpecTests, listSpecTestGroups } from '../api'
 
 const { Title, Text } = Typography
 
 declare const window: Window &
     typeof globalThis & {
         codescanApi: CodeScanAPI
-        testsApi: TestsAPI
-        specTestsApi: SpecTestsAPI
-        storyApi: StoryAPI
     }
 
 interface DashboardStats {
@@ -31,28 +29,32 @@ interface DashboardStats {
     stories: unknown[]
 }
 
-export function DashboardPage() {
+export function DashboardPage({ projectId }: { projectId?: string }) {
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        const scanPromise = window.codescanApi.getResult().catch(() => null)
+        const testsPromise = projectId ? listTestCases(projectId).catch(() => []) : Promise.resolve([])
+        const specTestsPromise = projectId ? listSpecTests(projectId).catch(() => []) : Promise.resolve([])
+        const specGroupsPromise = projectId ? listSpecTestGroups(projectId).catch(() => []) : Promise.resolve([])
+
         Promise.all([
-            window.codescanApi.getResult().catch(() => null),
-            window.testsApi.load().catch(() => []),
-            window.specTestsApi.load().catch(() => []),
-            window.specTestsApi.loadGroups().catch(() => []),
-            window.storyApi.load().catch(() => []),
-        ]).then(([scan, unitTests, specTests, specGroups, stories]) => {
+            scanPromise,
+            testsPromise,
+            specTestsPromise,
+            specGroupsPromise,
+        ]).then(([scan, unitTests, specTests, specGroups]) => {
             setStats({
                 scan: scan as ScanResult | null,
                 unitTests: unitTests as TestCase[],
                 specTests: specTests as SpecTest[],
                 specGroups: specGroups as SpecTestGroup[],
-                stories: stories as unknown[],
+                stories: [],
             })
             setLoading(false)
         })
-    }, [])
+    }, [projectId])
 
     if (loading || !stats) {
         return (

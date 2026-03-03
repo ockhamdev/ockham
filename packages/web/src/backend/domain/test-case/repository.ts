@@ -1,5 +1,5 @@
 import type { Id } from '../shared'
-import type { TestCase, SpecTest, SpecTestGroup, SpecTestUnit } from './test-case'
+import type { TestCase, SpecTest, SpecTestGroup, SpecTestUnit, UnitTestProposal, SpecTestProposal } from './test-case'
 
 /**
  * 测试用例仓储接口
@@ -9,14 +9,14 @@ export interface TestCaseRepository {
     createTestCase(testCase: TestCase): Promise<TestCase>
     findTestCaseById(id: Id): Promise<TestCase | null>
     findTestCasesByProjectId(projectId: Id): Promise<TestCase[]>
-    updateTestCase(id: Id, data: Partial<Pick<TestCase, 'path' | 'contentHash' | 'description'>>): Promise<TestCase>
+    updateTestCase(id: Id, data: Partial<Pick<TestCase, 'path' | 'contentHash' | 'description' | 'linkedFilePath' | 'linkedHash' | 'linkedAt'>>): Promise<TestCase>
     deleteTestCase(id: Id): Promise<void>
 
     // 规格测试
     createSpecTest(specTest: SpecTest): Promise<SpecTest>
     findSpecTestById(id: Id): Promise<SpecTest | null>
     findSpecTestsByProjectId(projectId: Id): Promise<SpecTest[]>
-    updateSpecTest(id: Id, data: Partial<Pick<SpecTest, 'title' | 'description' | 'groupId'>>): Promise<SpecTest>
+    updateSpecTest(id: Id, data: Partial<Pick<SpecTest, 'title' | 'description' | 'groupId' | 'linkedFilePath' | 'linkedHash' | 'linkedAt'>>): Promise<SpecTest>
     deleteSpecTest(id: Id): Promise<void>
 
     // 规格测试组
@@ -29,4 +29,19 @@ export interface TestCaseRepository {
     addSpecTestUnit(unit: SpecTestUnit): Promise<SpecTestUnit>
     findSpecTestUnits(specTestId: Id): Promise<SpecTestUnit[]>
     deleteSpecTestUnits(specTestId: Id): Promise<void>
+
+    // Unit Test Proposals
+    createUnitTestProposal(entry: UnitTestProposal): Promise<UnitTestProposal>
+    findUnitTestProposalByProjectId(projectId: Id): Promise<UnitTestProposal[]>
+    findUnitTestProposalById(id: Id): Promise<UnitTestProposal | null>
+    updateUnitTestProposal(id: Id, data: Partial<Pick<UnitTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote'>>): Promise<UnitTestProposal>
+    deleteUnitTestProposal(id: Id): Promise<void>
+
+    // Spec Test Proposals
+    createSpecTestProposal(entry: SpecTestProposal): Promise<SpecTestProposal>
+    findSpecTestProposalByProjectId(projectId: Id): Promise<SpecTestProposal[]>
+    findSpecTestProposalById(id: Id): Promise<SpecTestProposal | null>
+    updateSpecTestProposal(id: Id, data: Partial<Pick<SpecTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote'>>): Promise<SpecTestProposal>
+    deleteSpecTestProposal(id: Id): Promise<void>
 }
+

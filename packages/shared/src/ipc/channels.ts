@@ -30,6 +30,7 @@ export const IPC = {
     TESTS_SAVE: 'tests:save',
     TESTS_LOOKUP_UNIT: 'tests:lookupUnit',
     TESTS_LINK: 'tests:link',
+    TESTS_READ_BLOCK: 'tests:readBlock',
 
     // Spec Tests
     SPEC_TESTS_LOAD: 'specTests:load',
@@ -38,6 +39,7 @@ export const IPC = {
     SPEC_TESTS_LOAD_GROUPS: 'specTests:loadGroups',
     SPEC_TESTS_SAVE_GROUPS: 'specTests:saveGroups',
     SPEC_TESTS_LINK: 'specTests:link',
+    SPEC_TESTS_READ_BLOCK: 'specTests:readBlock',
 
     // AI Config
     AI_GET_CONFIG: 'ai:getConfig',

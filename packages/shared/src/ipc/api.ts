@@ -76,6 +76,8 @@ export interface TestsAPI {
     lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
     /** Sync: search workspace for test files matching [id] patterns */
     link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+    /** Read the describe block source starting at a given line */
+    readBlock(filePath: string, line: number): Promise<string>
 }
 
 /**
@@ -94,6 +96,8 @@ export interface SpecTestsAPI {
     saveGroups(projectId: string, groups: SpecTestGroup[]): Promise<void>
     /** Link: search workspace for test files matching [id] patterns */
     link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
+    /** Read the describe block source starting at a given line */
+    readBlock(filePath: string, line: number): Promise<string>
 }
 
 /**

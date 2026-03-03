@@ -129,4 +129,39 @@ export function registerTestsHandlers(): void {
             return result
         }
     )
+
+    // Read test block source — given filePath + line, return the describe block content
+    ipcMain.handle(
+        IPC.TESTS_READ_BLOCK,
+        async (event, filePath: string, line: number): Promise<string> => {
+            const ws = windowManager.getWorkspace(event.sender.id)
+            if (!ws) return ''
+
+            try {
+                const content = fs.readFileSync(path.join(ws, filePath), 'utf-8')
+                const lines = content.split('\n')
+                const matchLine = line // 1-indexed
+
+                // Find the describe block range by counting braces
+                let braceCount = 0
+                let foundOpen = false
+                let blockEnd = matchLine
+                for (let i = matchLine - 1; i < lines.length; i++) {
+                    const lineText = lines[i]
+                    for (const ch of lineText) {
+                        if (ch === '{') { braceCount++; foundOpen = true }
+                        if (ch === '}') braceCount--
+                    }
+                    if (foundOpen && braceCount <= 0) {
+                        blockEnd = i + 1 // 1-indexed
+                        break
+                    }
+                }
+
+                return lines.slice(matchLine - 1, blockEnd).join('\n')
+            } catch {
+                return ''
+            }
+        }
+    )
 }

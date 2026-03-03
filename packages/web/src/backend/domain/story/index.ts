@@ -1,2 +1,2 @@
-export type { Story, StoryMessage, StoryMessageRole } from './story'
+export type { Story, StoryMessage, StoryMessageRole, StoryProposal, StoryProposalStatus } from './story'
 export type { StoryRepository } from './repository'

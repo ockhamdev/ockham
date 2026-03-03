@@ -22,8 +22,8 @@ import { useNotes } from '../hooks/useNotes'
 const { TextArea } = Input
 const { Text, Paragraph } = Typography
 
-export function NotesPage() {
-    const { notes, loading, addNote, updateNote, deleteNote } = useNotes()
+export function NotesPage({ projectId }: { projectId?: string }) {
+    const { notes, loading, addNote, updateNote, deleteNote } = useNotes(projectId)
     const [modalOpen, setModalOpen] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [title, setTitle] = useState('')

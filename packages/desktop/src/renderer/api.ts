@@ -249,6 +249,29 @@ export async function deleteKnowledgeEntry(id: string): Promise<void> {
     await trpcMutation('knowledgeEntry.delete', { id })
 }
 
+// ── Notes ──
+
+export interface NoteRecord {
+    id: string; projectId: string; title: string; content: string
+    createdAt: string; updatedAt: string
+}
+
+export async function listNotes(projectId: string): Promise<NoteRecord[]> {
+    return trpcQuery<NoteRecord[]>('note.list', { projectId })
+}
+
+export async function createNote(data: { projectId: string; title: string; content: string }): Promise<NoteRecord> {
+    return trpcMutation<NoteRecord>('note.create', data)
+}
+
+export async function updateNote(data: { id: string; title?: string; content?: string }): Promise<NoteRecord> {
+    return trpcMutation<NoteRecord>('note.update', data)
+}
+
+export async function deleteNote(id: string): Promise<void> {
+    await trpcMutation('note.delete', { id })
+}
+
 // ── Issues ──
 
 export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
@@ -345,4 +368,209 @@ export async function savePromptTemplate(teamId: string, type: PromptTemplateTyp
 
 export async function resetPromptTemplate(teamId: string, type: PromptTemplateType): Promise<{ template: string }> {
     return trpcMutation<{ template: string }>('promptTemplate.reset', { teamId, type })
+}
+
+// ── Linked Test Approval ──
+
+export async function approveLinkedTest(id: string, linkedFilePath: string, linkedHash: string) {
+    return trpcMutation('testCase.approveLinkedTest', { id, linkedFilePath, linkedHash })
+}
+
+export async function approveLinkedSpecTest(id: string, linkedFilePath: string, linkedHash: string) {
+    return trpcMutation('testCase.approveLinkedSpecTest', { id, linkedFilePath, linkedHash })
+}
+
+// ── Unit Test CRUD (via tRPC) ──
+
+export interface TestCaseRecord {
+    id: string; projectId: string; path: string; contentHash: string; description: string
+    createdBy: string; linkedFilePath: string | null; linkedHash: string | null; linkedAt: string | null
+    createdAt: string; updatedAt: string
+}
+
+export async function listTestCases(projectId: string): Promise<TestCaseRecord[]> {
+    return trpcQuery<TestCaseRecord[]>('testCase.list', { projectId })
+}
+
+export async function createTestCaseInDB(data: {
+    projectId: string; path: string; contentHash?: string; description?: string
+}) {
+    return trpcMutation('testCase.create', data)
+}
+
+export async function updateTestCaseInDB(id: string, data: { path?: string; contentHash?: string; description?: string }) {
+    return trpcMutation('testCase.update', { id, ...data })
+}
+
+export async function deleteTestCaseInDB(id: string) {
+    return trpcMutation('testCase.delete', { id })
+}
+
+// ── Spec Test CRUD (via tRPC) ──
+
+export interface SpecTestRecord {
+    id: string; projectId: string; groupId: string | null; title: string; description: string
+    linkedFilePath: string | null; linkedHash: string | null; linkedAt: string | null
+    createdAt: string; updatedAt: string
+}
+
+export interface SpecTestGroupRecord {
+    id: string; projectId: string; key: string; name: string; parentKey: string | null
+    preconditions: string; createdAt: string; updatedAt: string
+}
+
+export async function listSpecTests(projectId: string): Promise<SpecTestRecord[]> {
+    return trpcQuery<SpecTestRecord[]>('testCase.listSpecTests', { projectId })
+}
+
+export async function listSpecTestGroups(projectId: string): Promise<SpecTestGroupRecord[]> {
+    return trpcQuery<SpecTestGroupRecord[]>('testCase.listSpecTestGroups', { projectId })
+}
+
+export async function createSpecTestInDB(data: {
+    projectId: string; title: string; description?: string; groupId?: string
+}) {
+    return trpcMutation('specTest.create', data)
+}
+
+export async function updateSpecTestInDB(id: string, data: { title?: string; description?: string }) {
+    return trpcMutation('specTest.update', { id, ...data })
+}
+
+export async function deleteSpecTestInDB(id: string) {
+    return trpcMutation('specTest.delete', { id })
+}
+
+export async function createSpecTestGroup(data: {
+    projectId: string; key: string; name: string; parentKey?: string | null; preconditions?: string
+}) {
+    return trpcMutation('testCase.createSpecTestGroup', data)
+}
+
+// ── Unit Test Proposals ──
+
+export type ProposalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface UnitTestProposal {
+    id: string
+    projectId: string
+    path: string
+    contentHash: string
+    description: string
+    proposedBy: string
+    status: ProposalStatus
+    linkedFilePath: string | null
+    linkedHash: string | null
+    reviewedBy: string | null
+    reviewNote: string
+    createdAt: string
+    updatedAt: string
+}
+
+export async function listUnitTestProposals(projectId: string): Promise<UnitTestProposal[]> {
+    return trpcQuery<UnitTestProposal[]>('testCase.listUnitTestProposals', { projectId })
+}
+
+export async function createUnitTestProposal(data: {
+    projectId: string; path: string; contentHash?: string; description?: string; proposedBy: string
+}): Promise<UnitTestProposal> {
+    return trpcMutation<UnitTestProposal>('testCase.createUnitTestProposal', data)
+}
+
+export async function updateUnitTestProposalLink(id: string, linkedFilePath: string, linkedHash: string) {
+    return trpcMutation('testCase.updateUnitTestProposalLink', { id, linkedFilePath, linkedHash })
+}
+
+export async function reviewUnitTestProposal(id: string, action: 'approve' | 'reject', reviewNote?: string) {
+    return trpcMutation('testCase.reviewUnitTestProposal', { id, action, reviewNote: reviewNote || '' })
+}
+
+export async function deleteUnitTestProposal(id: string): Promise<void> {
+    await trpcMutation('testCase.deleteUnitTestProposal', { id })
+}
+
+// ── Spec Test Proposals ──
+
+export interface SpecTestProposal {
+    id: string
+    projectId: string
+    title: string
+    description: string
+    groupKey: string | null
+    proposedBy: string
+    status: ProposalStatus
+    linkedFilePath: string | null
+    linkedHash: string | null
+    reviewedBy: string | null
+    reviewNote: string
+    createdAt: string
+    updatedAt: string
+}
+
+export async function listSpecTestProposals(projectId: string): Promise<SpecTestProposal[]> {
+    return trpcQuery<SpecTestProposal[]>('testCase.listSpecTestProposals', { projectId })
+}
+
+export async function createSpecTestProposal(data: {
+    projectId: string; title: string; description?: string; groupKey?: string | null; proposedBy: string
+}): Promise<SpecTestProposal> {
+    return trpcMutation<SpecTestProposal>('testCase.createSpecTestProposal', data)
+}
+
+export async function updateSpecTestProposalLink(id: string, linkedFilePath: string, linkedHash: string) {
+    return trpcMutation('testCase.updateSpecTestProposalLink', { id, linkedFilePath, linkedHash })
+}
+
+export async function reviewSpecTestProposal(id: string, action: 'approve' | 'reject', reviewNote?: string) {
+    return trpcMutation('testCase.reviewSpecTestProposal', { id, action, reviewNote: reviewNote || '' })
+}
+
+export async function deleteSpecTestProposal(id: string): Promise<void> {
+    await trpcMutation('testCase.deleteSpecTestProposal', { id })
+}
+
+// ── Story Chat (AI) ──
+
+export interface StoryResponse {
+    enrichedText: string
+    issues: { text: string; reason: string; suggestion: string }[]
+    prompt: string
+}
+
+export async function storyChat(teamId: string, messages: { role: string; content: string }[]): Promise<StoryResponse> {
+    return trpcMutation<StoryResponse>('story.chat', { teamId, messages })
+}
+
+// ── Story Proposals ──
+
+export interface StoryProposal {
+    id: string
+    projectId: string
+    title: string
+    enrichedText: string
+    prompt: string
+    proposedBy: string
+    status: ProposalStatus
+    reviewedBy: string | null
+    reviewNote: string
+    createdAt: string
+    updatedAt: string
+}
+
+export async function listStoryProposals(projectId: string): Promise<StoryProposal[]> {
+    return trpcQuery<StoryProposal[]>('story.listProposals', { projectId })
+}
+
+export async function createStoryProposal(data: {
+    projectId: string; title: string; enrichedText?: string; prompt?: string; proposedBy: string
+}): Promise<StoryProposal> {
+    return trpcMutation<StoryProposal>('story.createPoolEntry', data)
+}
+
+export async function reviewStoryProposal(id: string, action: 'approve' | 'reject', reviewNote?: string) {
+    return trpcMutation('story.reviewProposal', { id, action, reviewNote: reviewNote || '' })
+}
+
+export async function deleteStoryProposal(id: string): Promise<void> {
+    await trpcMutation('story.deleteProposal', { id })
 }

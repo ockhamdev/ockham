@@ -37,6 +37,7 @@ import { TeamSettingsPage } from './containers/TeamSettingsPage'
 import { KnowledgeBasePage } from './containers/KnowledgeBasePage'
 import { IssuesPage } from './containers/IssuesPage'
 import { ProjectKnowledgePage } from './containers/ProjectKnowledgePage'
+import { ProposalsPage } from './containers/ProposalsPage'
 import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam, ensureProject, type Project } from './api'
 import './styles/global.css'
 
@@ -78,11 +79,6 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
         },
         { type: 'divider' as const },
         {
-            key: '/story',
-            icon: <BookOutlined />,
-            label: 'Stories',
-        },
-        {
             key: '/code',
             icon: <CodeOutlined />,
             label: 'Codes',
@@ -99,6 +95,11 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
         },
         { type: 'divider' as const },
         {
+            key: '/story',
+            icon: <BookOutlined />,
+            label: 'Stories',
+        },
+        {
             key: '/issues',
             icon: <BugOutlined />,
             label: 'Issues',
@@ -107,6 +108,12 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
             key: '/project-knowledge',
             icon: <ReadOutlined />,
             label: 'Knowledge',
+        },
+        { type: 'divider' as const },
+        {
+            key: '/proposals',
+            icon: <ImportOutlined />,
+            label: 'Proposals',
         },
     ]
 
@@ -332,11 +339,27 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                 </Header>
                 <Content style={{ flex: 1, overflow: 'auto' }}>
                     <Routes>
-                        <Route path="/" element={<DashboardPage />} />
+                        <Route path="/" element={
+                            currentProject
+                                ? <DashboardPage projectId={currentProject.id} />
+                                : <DashboardPage />
+                        } />
                         <Route path="/code" element={<CodePage />} />
-                        <Route path="/story" element={<StoryPage />} />
-                        <Route path="/unit-tests" element={<UnitTestsPage />} />
-                        <Route path="/spec-tests" element={<SpecTestsPage />} />
+                        <Route path="/story" element={
+                            currentProject
+                                ? <StoryPage projectId={currentProject.id} teamId={currentTeam?.id} />
+                                : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
+                        } />
+                        <Route path="/unit-tests" element={
+                            currentProject
+                                ? <UnitTestsPage projectId={currentProject.id} />
+                                : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
+                        } />
+                        <Route path="/spec-tests" element={
+                            currentProject
+                                ? <SpecTestsPage projectId={currentProject.id} />
+                                : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
+                        } />
                         <Route path="/issues" element={
                             currentProject
                                 ? <IssuesPage projectId={currentProject.id} />
@@ -345,6 +368,11 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                         <Route path="/project-knowledge" element={
                             currentProject
                                 ? <ProjectKnowledgePage projectId={currentProject.id} />
+                                : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
+                        } />
+                        <Route path="/proposals" element={
+                            currentProject
+                                ? <ProposalsPage projectId={currentProject.id} />
                                 : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
                         } />
                     </Routes>

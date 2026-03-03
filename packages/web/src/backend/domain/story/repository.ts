@@ -1,5 +1,5 @@
 import type { Id } from '../shared'
-import type { Story, StoryMessage } from './story'
+import type { Story, StoryMessage, StoryProposal } from './story'
 
 /**
  * 故事仓储接口
@@ -15,4 +15,11 @@ export interface StoryRepository {
     addMessage(message: StoryMessage): Promise<StoryMessage>
     findMessages(storyId: Id): Promise<StoryMessage[]>
     deleteMessages(storyId: Id): Promise<void>
+
+    // Proposal 操作
+    createProposal(entry: StoryProposal): Promise<StoryProposal>
+    findProposalById(id: Id): Promise<StoryProposal | null>
+    findProposalByProjectId(projectId: Id): Promise<StoryProposal[]>
+    updateProposal(id: Id, data: Partial<Pick<StoryProposal, 'status' | 'reviewedBy' | 'reviewNote'>>): Promise<StoryProposal>
+    deleteProposal(id: Id): Promise<void>
 }

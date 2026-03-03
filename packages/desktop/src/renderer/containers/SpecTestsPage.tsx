@@ -34,7 +34,8 @@ import type { DataNode } from 'antd/es/tree'
 import type { SpecTest, SpecTestUnit, SpecTestGroup, SyntaxUnit } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
-import { getPromptTemplate } from '../api'
+import { getPromptTemplate, listSpecTests, createSpecTestInDB, updateSpecTestInDB, deleteSpecTestInDB, listSpecTestGroups, createSpecTestGroup } from '../api'
+import { SpecTestProposalDrawer } from '../components/SpecTestProposalDrawer'
 import '../styles/spec-group-tree.css'
 
 const { Title, Text } = Typography
@@ -811,11 +812,12 @@ function GroupEditorDrawer({
 }
 
 // ── Main SpecTestsPage ──
-export function SpecTestsPage() {
+export function SpecTestsPage({ projectId }: { projectId?: string }) {
     const [tests, setTests] = useState<SpecTest[]>([])
     const [groups, setGroups] = useState<SpecTestGroup[]>([])
     const [selectedGroup, setSelectedGroup] = useState('default')
     const [loading, setLoading] = useState(true)
+    const [showProposals, setShowProposals] = useState(false)
 
     // Drawer state
     const [drawerOpen, setDrawerOpen] = useState(false)
@@ -850,17 +852,21 @@ export function SpecTestsPage() {
         setLinking(false)
     }, [tests])
 
-    // Load data
+    // Load data from DB
     useEffect(() => {
-        Promise.all([
-            window.specTestsApi.load(),
-            window.specTestsApi.loadGroups(),
-        ]).then(([loadedTests, loadedGroups]) => {
-            setTests(loadedTests || [])
-            setGroups(loadedGroups || [{ key: 'default', name: 'Default', preconditions: '' }])
+        if (projectId) {
+            Promise.all([
+                listSpecTests(projectId),
+                listSpecTestGroups(projectId),
+            ]).then(([loadedTests, loadedGroups]) => {
+                setTests((loadedTests || []) as unknown as SpecTest[])
+                setGroups((loadedGroups as unknown as SpecTestGroup[]) || [{ key: 'default', name: 'Default', preconditions: '' }])
+                setLoading(false)
+            })
+        } else {
             setLoading(false)
-        })
-    }, [])
+        }
+    }, [projectId])
 
     // Collect selected group + all descendant group keys
     const filteredTests = useMemo(() => {
@@ -886,25 +892,23 @@ export function SpecTestsPage() {
         return map
     }, [groups])
 
-    const handleSaveTest = useCallback((st: SpecTest) => {
-        let updated: SpecTest[]
+    const handleSaveTest = useCallback(async (st: SpecTest) => {
         if (drawerMode === 'edit') {
-            updated = tests.map((t) => (t.id === st.id ? st : t))
+            setTests(prev => prev.map((t) => (t.id === st.id ? st : t)))
+            if (projectId) await updateSpecTestInDB(st.id, { title: st.title, description: st.description })
         } else {
-            updated = [...tests, st]
+            setTests(prev => [...prev, st])
+            if (projectId) await createSpecTestInDB({ projectId, title: st.title, description: st.description })
         }
-        setTests(updated)
-        window.specTestsApi.save(updated)
         setDrawerOpen(false)
         setEditingTest(null)
         message.success(drawerMode === 'edit' ? 'Spec test updated' : `Spec test created: ${st.title}`)
-    }, [tests, drawerMode])
+    }, [drawerMode, projectId])
 
-    const handleDeleteTest = useCallback((id: string) => {
-        const updated = tests.filter((t) => t.id !== id)
-        setTests(updated)
-        window.specTestsApi.save(updated)
-    }, [tests])
+    const handleDeleteTest = useCallback(async (id: string) => {
+        setTests(prev => prev.filter((t) => t.id !== id))
+        if (projectId) await deleteSpecTestInDB(id)
+    }, [projectId])
 
     const handleEditTest = useCallback((st: SpecTest) => {
         setEditingTest(st)
@@ -919,19 +923,19 @@ export function SpecTestsPage() {
     }, [])
 
     // Group operations
-    const handleSaveGroup = useCallback((g: SpecTestGroup) => {
-        let updated: SpecTestGroup[]
+    const handleSaveGroup = useCallback(async (g: SpecTestGroup) => {
         if (editingGroup) {
-            updated = groups.map((gp) => (gp.key === g.key ? g : gp))
+            setGroups(prev => prev.map((gp) => (gp.key === g.key ? g : gp)))
         } else {
-            updated = [...groups, g]
+            setGroups(prev => [...prev, g])
         }
-        setGroups(updated)
-        window.specTestsApi.saveGroups(updated)
+        if (projectId) {
+            await createSpecTestGroup({ projectId, key: g.key, name: g.name, parentKey: g.parentKey || null, preconditions: g.preconditions || '' })
+        }
         setGroupEditorOpen(false)
         setEditingGroup(null)
         if (!editingGroup) setSelectedGroup(g.key)
-    }, [groups, editingGroup])
+    }, [editingGroup, projectId])
 
     const handleDeleteGroup = useCallback((key: string) => {
         if (key === 'default') return
@@ -939,21 +943,18 @@ export function SpecTestsPage() {
         const parentOfDeleted = deletedGroup?.parentKey || 'default'
 
         // Move tests from deleted group to its parent
-        const updatedTests = tests.map((t) =>
+        setTests(prev => prev.map((t) =>
             t.group === key ? { ...t, group: parentOfDeleted } : t
-        )
-        setTests(updatedTests)
-        window.specTestsApi.save(updatedTests)
+        ))
 
         // Re-parent child groups to deleted group's parent
-        const updatedGroups = groups
+        setGroups(prev => prev
             .filter((g) => g.key !== key)
             .map((g) => g.parentKey === key ? { ...g, parentKey: deletedGroup?.parentKey } : g)
-        setGroups(updatedGroups)
-        window.specTestsApi.saveGroups(updatedGroups)
+        )
 
         if (selectedGroup === key) setSelectedGroup(parentOfDeleted)
-    }, [tests, groups, selectedGroup])
+    }, [groups, selectedGroup])
 
     const handleGeneratePrompt = useCallback(async (st: SpecTest) => {
         setGeneratingPrompt(st.id)
@@ -1208,6 +1209,13 @@ export function SpecTestsPage() {
                         )}
                     </div>
                     <Space>
+                        {projectId && (
+                            <Button
+                                onClick={() => setShowProposals(true)}
+                            >
+                                Pool
+                            </Button>
+                        )}
                         <Button
                             icon={<LinkOutlined />}
                             onClick={handleLink}
@@ -1313,6 +1321,18 @@ export function SpecTestsPage() {
                     </div>
                 </div>
             </Drawer>
+
+            {/* Proposals Drawer */}
+            {projectId && (
+                <SpecTestProposalDrawer
+                    open={showProposals}
+                    onClose={() => setShowProposals(false)}
+                    projectId={projectId}
+                    onApproved={() => {
+                        if (projectId) listSpecTests(projectId).then((items) => { if (items?.length) setTests(items as unknown as SpecTest[]) })
+                    }}
+                />
+            )}
         </div>
     )
 }

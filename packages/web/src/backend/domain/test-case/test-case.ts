@@ -31,6 +31,9 @@ export interface SpecTest extends BaseEntity {
     readonly groupId: Id | null
     readonly title: string
     readonly description: string
+    readonly linkedFilePath: string | null
+    readonly linkedHash: string | null
+    readonly linkedAt: Date | null
 }
 
 /**
@@ -42,4 +45,45 @@ export interface TestCase extends BaseEntity {
     readonly contentHash: string
     readonly description: string
     readonly createdBy: Id
+    readonly linkedFilePath: string | null
+    readonly linkedHash: string | null
+    readonly linkedAt: Date | null
 }
+
+/**
+ * 提议状态
+ */
+export type ProposalStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * 单元测试提议
+ */
+export interface UnitTestProposal extends BaseEntity {
+    readonly projectId: Id
+    readonly path: string
+    readonly contentHash: string
+    readonly description: string
+    readonly proposedBy: string
+    readonly status: ProposalStatus
+    readonly linkedFilePath: string | null
+    readonly linkedHash: string | null
+    readonly reviewedBy: Id | null
+    readonly reviewNote: string
+}
+
+/**
+ * 规格测试提议
+ */
+export interface SpecTestProposal extends BaseEntity {
+    readonly projectId: Id
+    readonly title: string
+    readonly description: string
+    readonly groupKey: string | null
+    readonly proposedBy: string
+    readonly status: ProposalStatus
+    readonly linkedFilePath: string | null
+    readonly linkedHash: string | null
+    readonly reviewedBy: Id | null
+    readonly reviewNote: string
+}
+

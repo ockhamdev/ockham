@@ -151,6 +151,9 @@ export const unitTests = pgTable('unit_tests', {
     contentHash: text('content_hash').notNull().default(''),
     description: text('description').notNull().default(''),
     createdBy: uuid('created_by').notNull().references(() => users.id),
+    linkedFilePath: text('linked_file_path'),
+    linkedHash: text('linked_hash'),
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -174,6 +177,9 @@ export const specTests = pgTable('spec_tests', {
     groupId: uuid('group_id').references(() => specGroups.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    linkedFilePath: text('linked_file_path'),
+    linkedHash: text('linked_hash'),
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -233,3 +239,54 @@ export const promptTemplates = pgTable('prompt_templates', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ── Proposals (External) ───────────────────────────────
+
+export const proposalStatusEnum = pgEnum('proposal_status', ['pending', 'approved', 'rejected'])
+
+export const unitTestProposals = pgTable('unit_test_proposals', {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    contentHash: text('content_hash').notNull().default(''),
+    description: text('description').notNull().default(''),
+    proposedBy: text('proposed_by').notNull(),
+    status: proposalStatusEnum('status').notNull().default('pending'),
+    linkedFilePath: text('linked_file_path'),
+    linkedHash: text('linked_hash'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const specTestProposals = pgTable('spec_test_proposals', {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+    groupKey: text('group_key'),
+    proposedBy: text('proposed_by').notNull(),
+    status: proposalStatusEnum('status').notNull().default('pending'),
+    linkedFilePath: text('linked_file_path'),
+    linkedHash: text('linked_hash'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const storyProposals = pgTable('story_proposals', {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    enrichedText: text('enriched_text').notNull().default(''),
+    prompt: text('prompt').notNull().default(''),
+    proposedBy: text('proposed_by').notNull(),
+    status: proposalStatusEnum('status').notNull().default('pending'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+

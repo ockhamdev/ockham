@@ -33,24 +33,19 @@ import {
 import type { TestCase, SyntaxUnit, SpecTest, SpecTestGroup } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
-import { getPromptTemplate } from '../api'
+import { getPromptTemplate, listTestCases, createTestCaseInDB, updateTestCaseInDB, deleteTestCaseInDB } from '../api'
+import { UnitTestProposalDrawer } from '../components/UnitTestProposalDrawer'
 
 const { Title, Text } = Typography
 
 declare global {
     interface Window {
         testsApi: {
-            load(): Promise<TestCase[]>
-            save(items: TestCase[]): Promise<void>
             lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
             link(testIds: string[]): Promise<Record<string, { filePath: string; line: number }>>
         }
         specTestsApi: {
-            load(): Promise<SpecTest[]>
-            save(items: SpecTest[]): Promise<void>
             lookupUnit(filePath: string, keyword: string): Promise<SyntaxUnit[]>
-            loadGroups(): Promise<SpecTestGroup[]>
-            saveGroups(groups: SpecTestGroup[]): Promise<void>
         }
     }
 }
@@ -282,10 +277,12 @@ function TestDrawer({
 
 // ── Main TestsPage ────────────────────────────────────
 
-function TestsPage() {
-    const api = window.testsApi
+function TestsPage({ projectId }: { projectId?: string }) {
+    // IPC only for local filesystem ops (lookupUnit, link)
+    const localApi = window.testsApi
     const [tests, setTests] = useState<TestCase[]>([])
     const [drawerOpen, setDrawerOpen] = useState(false)
+    const [showProposals, setShowProposals] = useState(false)
 
     // Inline input state
     const [showInput, setShowInput] = useState(false)
@@ -307,21 +304,16 @@ function TestsPage() {
     const [matchCandidates, setMatchCandidates] = useState<SyntaxUnit[]>([])
     const [showMatchModal, setShowMatchModal] = useState(false)
 
-    // Link state
-    const [linkResults, setLinkResults] = useState<Record<string, { filePath: string; line: number }>>({})
+    // For syntax-aware linking
     const [linking, setLinking] = useState(false)
+    const [linkResults, setLinkResults] = useState<Record<string, { filePath: string; line: number }>>({})
 
+    // Perform linking via IPC (reads filesystem)
     const handleLink = useCallback(async () => {
-        // link is only available on testsApi (unit tests)
-        const linkFn = (api as { link?: (ids: string[]) => Promise<Record<string, { filePath: string; line: number }>> }).link
-        if (!linkFn) {
-            message.warning('Link is not supported for this category')
-            return
-        }
         setLinking(true)
         try {
             const ids = tests.map((t) => t.id)
-            const results = await linkFn(ids)
+            const results = await localApi.link(ids)
             setLinkResults(results)
             const matched = Object.keys(results).length
             message.success(`Link complete: ${matched}/${ids.length} linked`)
@@ -329,14 +321,16 @@ function TestsPage() {
             message.error('Link failed')
         }
         setLinking(false)
-    }, [tests, api])
+    }, [tests, localApi])
 
-    // Load persisted test cases on mount
+    // Load persisted test cases from DB on mount
     useEffect(() => {
-        api.load().then((items) => {
-            if (items?.length) setTests(items)
-        })
-    }, [api])
+        if (projectId) {
+            listTestCases(projectId).then((items) => {
+                if (items?.length) setTests(items as unknown as TestCase[])
+            })
+        }
+    }, [projectId])
 
     // Auto-focus input when shown
     useEffect(() => {
@@ -360,50 +354,45 @@ function TestsPage() {
         setInputError('')
     }, [])
 
-    const openDrawerWithUnit = useCallback((unit: SyntaxUnit, filePath: string, keyword: string) => {
-        setPendingUnit(unit)
-        setPendingFilePath(filePath)
-        setPendingKeyword(keyword)
-        setDrawerMode('create')
-        setEditingTest(null)
-        setDrawerOpen(true)
-        setShowInput(false)
-        setInputValue('')
-    }, [])
+    const openDrawerWithUnit = useCallback(
+        (unit: SyntaxUnit, filePath: string, keyword: string) => {
+            setPendingUnit(unit)
+            setPendingFilePath(filePath)
+            setPendingKeyword(keyword)
+            setDrawerOpen(true)
+        },
+        []
+    )
 
-    const handleInputConfirm = useCallback(async () => {
-        const value = inputValue.trim()
-        if (!value) {
-            setInputError('请输入 path keyword，如 src/App.tsx menuItems')
+    // Inline input: parse user input (filePath keyword) and lookup syntax unit via IPC
+    const handleInlineSubmit = useCallback(async () => {
+        const val = inputValue.trim()
+        if (!val) return
+
+        const parts = val.split(/\s+/)
+        if (parts.length < 2) {
+            setInputError('Format: filePath keyword')
             return
         }
-
-        // Parse: first token is path, rest is keyword
-        const spaceIdx = value.indexOf(' ')
-        if (spaceIdx === -1) {
-            setInputError('格式：path keyword，如 src/App.tsx menuItems')
-            return
-        }
-
-        const filePath = value.substring(0, spaceIdx)
-        const keyword = value.substring(spaceIdx + 1).trim()
-        if (!keyword) {
-            setInputError('请输入关键字，如 src/App.tsx menuItems')
-            return
-        }
+        const filePath = parts[0]
+        const keyword = parts.slice(1).join(' ')
 
         setLookingUp(true)
         setInputError('')
 
         try {
-            const units = await api.lookupUnit(filePath, keyword)
+            const units = await localApi.lookupUnit(filePath, keyword)
+
             if (units.length === 0) {
-                setInputError(`未找到匹配 "${keyword}" 的语法单元`)
+                setInputError(`No match for "${keyword}" in ${filePath}`)
             } else if (units.length === 1) {
-                // Exact match — open drawer directly
+                setShowInput(false)
+                setInputValue('')
+                setDrawerMode('create')
+                setEditingTest(null)
                 openDrawerWithUnit(units[0], filePath, keyword)
             } else {
-                // Multiple matches — show selection
+                // Multiple matches — show selector
                 setMatchCandidates(units)
                 setPendingFilePath(filePath)
                 setPendingKeyword(keyword)
@@ -413,7 +402,7 @@ function TestsPage() {
             setInputError(err instanceof Error ? err.message : 'Lookup failed')
         }
         setLookingUp(false)
-    }, [inputValue, openDrawerWithUnit, api])
+    }, [inputValue, localApi, openDrawerWithUnit])
 
     const handleSelectMatch = useCallback((unit: SyntaxUnit) => {
         setShowMatchModal(false)
@@ -422,31 +411,32 @@ function TestsPage() {
     }, [pendingFilePath, pendingKeyword, openDrawerWithUnit])
 
     const handleSaveFromDrawer = useCallback(
-        (tc: TestCase) => {
-            let updated: TestCase[]
+        async (tc: TestCase) => {
             if (drawerMode === 'edit') {
-                updated = tests.map((t) => (t.id === tc.id ? tc : t))
+                setTests(prev => prev.map((t) => (t.id === tc.id ? tc : t)))
+                if (projectId) {
+                    await updateTestCaseInDB(tc.id, { path: tc.path, contentHash: tc.contentHash, description: tc.description })
+                }
             } else {
-                updated = [...tests, tc]
+                setTests(prev => [...prev, tc])
+                if (projectId) {
+                    await createTestCaseInDB({ projectId, path: tc.path, contentHash: tc.contentHash, description: tc.description })
+                }
             }
-            setTests(updated)
-            api.save(updated)
             setDrawerOpen(false)
             setPendingUnit(null)
             setEditingTest(null)
             message.success(drawerMode === 'edit' ? 'Test updated' : `Test created: ${parsePath(tc.path).keyword}`)
         },
-        [tests, api, drawerMode]
+        [drawerMode, projectId]
     )
 
     const handleEdit = useCallback((tc: TestCase) => {
-        // For edit, we need the syntax unit — look it up from the test's path
         const { filePath, keyword: kw } = parsePath(tc.path)
         setEditingTest(tc)
         setDrawerMode('edit')
         setPendingKeyword(kw)
-        // Lookup the syntax unit to show source code in the drawer
-        api.lookupUnit(filePath, kw).then((units) => {
+        localApi.lookupUnit(filePath, kw).then((units) => {
             if (units.length > 0) {
                 setPendingUnit(units[0])
                 setPendingFilePath(filePath)
@@ -456,15 +446,16 @@ function TestsPage() {
                 setEditingTest(null)
             }
         })
-    }, [api])
+    }, [localApi])
 
     const handleDelete = useCallback(
-        (id: string) => {
-            const updated = tests.filter((t) => t.id !== id)
-            setTests(updated)
-            api.save(updated)
+        async (id: string) => {
+            setTests(prev => prev.filter((t) => t.id !== id))
+            if (projectId) {
+                await deleteTestCaseInDB(id)
+            }
         },
-        [tests, api]
+        [projectId]
     )
 
     // ── Generate prompt state ──
@@ -478,7 +469,7 @@ function TestsPage() {
         const { filePath, keyword: kw } = parsePath(tc.path)
         try {
             // Look up syntax unit to get source code
-            const units = await api.lookupUnit(filePath, kw)
+            const units = await localApi.lookupUnit(filePath, kw)
             let sourceSnippet = '// Source code not available'
             if (units.length > 0) {
                 const unit = units[0]
@@ -519,7 +510,7 @@ function TestsPage() {
             message.error('Failed to generate prompt')
         }
         setGeneratingPrompt(null)
-    }, [api])
+    }, [localApi])
 
     const columns = [
         {
@@ -653,6 +644,13 @@ function TestsPage() {
                     Unit Tests
                 </Title>
                 <Space>
+                    {projectId && (
+                        <Button
+                            onClick={() => setShowProposals(true)}
+                        >
+                            Pool
+                        </Button>
+                    )}
                     <Button
                         icon={<LinkOutlined spin={linking} />}
                         onClick={handleLink}
@@ -695,14 +693,14 @@ function TestsPage() {
                         placeholder="path keyword — 如 src/App.tsx menuItems"
                         status={inputError ? 'error' : undefined}
                         style={{ flex: 1, fontFamily: 'monospace' }}
-                        onPressEnter={handleInputConfirm}
+                        onPressEnter={handleInlineSubmit}
                         disabled={lookingUp}
                         suffix={lookingUp ? <Spin size="small" /> : undefined}
                     />
                     <Button
                         type="primary"
                         icon={<EnterOutlined />}
-                        onClick={handleInputConfirm}
+                        onClick={handleInlineSubmit}
                         loading={lookingUp}
                         size="small"
                     >
@@ -948,10 +946,23 @@ function TestsPage() {
                     )
                 })()}
             </Drawer>
+
+            {/* Proposals Drawer */}
+            {projectId && (
+                <UnitTestProposalDrawer
+                    open={showProposals}
+                    onClose={() => setShowProposals(false)}
+                    projectId={projectId}
+                    linkResults={linkResults}
+                    onApproved={() => {
+                        if (projectId) listTestCases(projectId).then((items) => { if (items?.length) setTests(items as unknown as TestCase[]) })
+                    }}
+                />
+            )}
         </div>
     )
 }
 
-export function UnitTestsPage() {
-    return <TestsPage />
+export function UnitTestsPage({ projectId }: { projectId?: string }) {
+    return <TestsPage projectId={projectId} />
 }

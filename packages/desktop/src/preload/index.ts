@@ -69,6 +69,7 @@ const testsApi: TestsAPI = {
     lookupUnit: (filePath: string, keyword: string) =>
         ipcRenderer.invoke(IPC.TESTS_LOOKUP_UNIT, filePath, keyword),
     link: (testIds: string[]) => ipcRenderer.invoke(IPC.TESTS_LINK, testIds),
+    readBlock: (filePath: string, line: number) => ipcRenderer.invoke(IPC.TESTS_READ_BLOCK, filePath, line),
 }
 
 /**
@@ -82,6 +83,7 @@ const specTestsApi: SpecTestsAPI = {
     loadGroups: (projectId: string) => ipcRenderer.invoke(IPC.SPEC_TESTS_LOAD_GROUPS, projectId),
     saveGroups: (projectId: string, groups: SpecTestGroup[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_SAVE_GROUPS, projectId, groups),
     link: (testIds: string[]) => ipcRenderer.invoke(IPC.SPEC_TESTS_LINK, testIds),
+    readBlock: (filePath: string, line: number) => ipcRenderer.invoke(IPC.SPEC_TESTS_READ_BLOCK, filePath, line),
 }
 
 /**

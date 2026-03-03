@@ -22,25 +22,13 @@ import {
     UserOutlined,
     RobotOutlined,
 } from '@ant-design/icons'
-import type { AiConfig, StoryMessage, StoryIssue, StoryResponse } from '@ockham/shared'
+import type { StoryIssue } from '@ockham/shared'
 import { v7 as uuidv7 } from 'uuid'
+import { StoryProposalDrawer } from '../components/StoryProposalDrawer'
+import { storyChat, listAiConfigs, upsertAiConfig, type StoryResponse, type TeamAiConfig } from '../api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
-
-declare global {
-    interface Window {
-        storyApi: {
-            chat(messages: StoryMessage[]): Promise<StoryResponse>
-            load(): Promise<ChatItem[]>
-            save(items: ChatItem[]): Promise<void>
-        }
-        aiConfigApi: {
-            getConfig(): Promise<AiConfig>
-            setConfig(config: AiConfig): Promise<void>
-        }
-    }
-}
 
 // ── Chat message type ─────────────────────────────────
 interface ChatItem {
@@ -127,18 +115,41 @@ function HighlightedText({
 }
 
 // ── AI Settings Popover ───────────────────────────────
-function AiSettings() {
-    const [config, setConfig] = useState<AiConfig>({ apiKey: '' })
+function AiSettings({ teamId }: { teamId?: string }) {
+    const [configs, setConfigs] = useState<TeamAiConfig[]>([])
     const [loading, setLoading] = useState(false)
+    const [apiKey, setApiKey] = useState('')
+    const [baseUrl, setBaseUrl] = useState('')
+    const [model, setModel] = useState('')
 
     useEffect(() => {
-        window.aiConfigApi.getConfig().then(setConfig)
-    }, [])
+        if (teamId) {
+            listAiConfigs(teamId).then((items) => {
+                setConfigs(items)
+                const defaultCfg = items.find((c) => c.isDefault) || items[0]
+                if (defaultCfg) {
+                    setApiKey(defaultCfg.apiKey || '')
+                    setBaseUrl(defaultCfg.baseUrl || '')
+                    setModel(defaultCfg.models?.[0] || '')
+                }
+            })
+        }
+    }, [teamId])
 
     const handleSave = async () => {
+        if (!teamId) return
         setLoading(true)
         try {
-            await window.aiConfigApi.setConfig(config)
+            const existing = configs.find((c) => c.isDefault) || configs[0]
+            await upsertAiConfig({
+                id: existing?.id,
+                teamId,
+                provider: 'openai-compatible',
+                apiKey,
+                baseUrl: baseUrl || undefined,
+                models: model ? [model] : [],
+                isDefault: true,
+            })
             message.success('AI settings saved')
         } catch {
             message.error('Failed to save settings')
@@ -150,22 +161,22 @@ function AiSettings() {
         <Form layout="vertical" style={{ width: 320 }}>
             <Form.Item label="API Key" required>
                 <Input.Password
-                    value={config.apiKey}
-                    onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-..."
                 />
             </Form.Item>
             <Form.Item label="Base URL">
                 <Input
-                    value={config.baseUrl || ''}
-                    onChange={(e) => setConfig({ ...config, baseUrl: e.target.value || undefined })}
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
                     placeholder="https://api.anthropic.com"
                 />
             </Form.Item>
             <Form.Item label="Model">
                 <Input
-                    value={config.model || ''}
-                    onChange={(e) => setConfig({ ...config, model: e.target.value || undefined })}
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
                     placeholder="claude-3-sonnet-20240229"
                 />
             </Form.Item>
@@ -262,32 +273,19 @@ function ChatBubble({ item, onGeneratePrompt }: { item: ChatItem; onGenerateProm
 }
 
 // ── Main StoryPage ────────────────────────────────────
-export function StoryPage() {
+export function StoryPage({ projectId, teamId }: { projectId?: string; teamId?: string }) {
     const [messages, setMessages] = useState<ChatItem[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
     const [promptDrawerOpen, setPromptDrawerOpen] = useState(false)
     const [currentPrompt, setCurrentPrompt] = useState('')
+    const [showProposals, setShowProposals] = useState(false)
     const chatEndRef = useRef<HTMLDivElement>(null)
-
-    // Load persisted messages on mount
-    useEffect(() => {
-        window.storyApi.load().then((items: ChatItem[]) => {
-            if (items?.length) setMessages(items)
-        })
-    }, [])
 
     // Auto-scroll to bottom
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
-
-    // Save helper
-    const persistMessages = useCallback((items: ChatItem[]) => {
-        // Only save non-loading messages
-        const toSave = items.filter((m) => !m.loading)
-        window.storyApi.save(toSave)
-    }, [])
 
     const handleSend = useCallback(async () => {
         const text = input.trim()
@@ -310,8 +308,9 @@ export function StoryPage() {
         setSending(true)
 
         try {
-            const storyMessages: StoryMessage[] = [{ role: 'user', content: text }]
-            const result = await window.storyApi.chat(storyMessages)
+            const storyMessages = [{ role: 'user' as const, content: text }]
+            if (!teamId) throw new Error('Team not selected')
+            const result = await storyChat(teamId, storyMessages)
 
             setMessages((prev) => {
                 const updated = prev.map((m) => {
@@ -328,7 +327,6 @@ export function StoryPage() {
                     }
                     return m
                 })
-                persistMessages(updated)
                 return updated
             })
         } catch (err) {
@@ -345,7 +343,7 @@ export function StoryPage() {
             )
         }
         setSending(false)
-    }, [input, sending, persistMessages])
+    }, [input, sending])
 
     const handleGeneratePrompt = useCallback((resp: StoryResponse) => {
         setCurrentPrompt(resp.prompt)
@@ -380,16 +378,23 @@ export function StoryPage() {
                 <Title level={4} style={{ margin: 0 }}>
                     Story
                 </Title>
-                <Popover
-                    content={<AiSettings />}
-                    title="AI Settings"
-                    trigger="click"
-                    placement="bottomRight"
-                >
-                    <Button type="text" icon={<SettingOutlined />} size="small">
-                        AI Settings
-                    </Button>
-                </Popover>
+                <Space>
+                    {projectId && (
+                        <Button onClick={() => setShowProposals(true)}>
+                            Pool
+                        </Button>
+                    )}
+                    <Popover
+                        content={<AiSettings teamId={teamId} />}
+                        title="AI Settings"
+                        trigger="click"
+                        placement="bottomRight"
+                    >
+                        <Button type="text" icon={<SettingOutlined />} size="small">
+                            AI Settings
+                        </Button>
+                    </Popover>
+                </Space>
             </div>
 
             {/* Chat area */}
@@ -490,6 +495,15 @@ export function StoryPage() {
                     <Empty description="No prompt generated yet" />
                 )}
             </Drawer>
+
+            {/* Proposals Drawer */}
+            {projectId && (
+                <StoryProposalDrawer
+                    open={showProposals}
+                    onClose={() => setShowProposals(false)}
+                    projectId={projectId}
+                />
+            )}
         </div>
     )
 }

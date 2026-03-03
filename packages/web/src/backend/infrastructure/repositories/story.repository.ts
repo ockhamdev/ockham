@@ -1,9 +1,9 @@
 import { eq, asc } from 'drizzle-orm'
 import { db } from '../db'
-import { stories, storyMessages } from '../db/schema'
+import { stories, storyMessages, storyProposals } from '../db/schema'
 import { toId } from '@/backend/domain/shared'
 import type { Id } from '@/backend/domain/shared'
-import type { Story, StoryMessage, StoryRepository } from '@/backend/domain/story'
+import type { Story, StoryMessage, StoryProposal, StoryRepository } from '@/backend/domain/story'
 
 export class DrizzleStoryRepository implements StoryRepository {
     async create(story: Story): Promise<Story> {
@@ -71,6 +71,50 @@ export class DrizzleStoryRepository implements StoryRepository {
         await db.delete(storyMessages).where(eq(storyMessages.storyId, storyId))
     }
 
+    // ── Proposal Operations ──
+
+    async createProposal(entry: StoryProposal): Promise<StoryProposal> {
+        const [row] = await db.insert(storyProposals).values({
+            id: entry.id,
+            projectId: entry.projectId,
+            title: entry.title,
+            enrichedText: entry.enrichedText,
+            prompt: entry.prompt,
+            proposedBy: entry.proposedBy,
+            status: entry.status,
+            reviewedBy: entry.reviewedBy,
+            reviewNote: entry.reviewNote,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+        }).returning()
+        return this.toProposal(row)
+    }
+
+    async findProposalById(id: Id): Promise<StoryProposal | null> {
+        const [row] = await db.select().from(storyProposals).where(eq(storyProposals.id, id))
+        return row ? this.toProposal(row) : null
+    }
+
+    async findProposalByProjectId(projectId: Id): Promise<StoryProposal[]> {
+        const rows = await db.select().from(storyProposals).where(eq(storyProposals.projectId, projectId))
+        return rows.map((r) => this.toProposal(r))
+    }
+
+    async updateProposal(id: Id, data: Partial<Pick<StoryProposal, 'status' | 'reviewedBy' | 'reviewNote'>>): Promise<StoryProposal> {
+        const [row] = await db
+            .update(storyProposals)
+            .set({ ...data, updatedAt: new Date() })
+            .where(eq(storyProposals.id, id))
+            .returning()
+        return this.toProposal(row)
+    }
+
+    async deleteProposal(id: Id): Promise<void> {
+        await db.delete(storyProposals).where(eq(storyProposals.id, id))
+    }
+
+    // ── Mappers ──
+
     private toStory(row: typeof stories.$inferSelect): Story {
         return {
             id: toId(row.id),
@@ -91,6 +135,22 @@ export class DrizzleStoryRepository implements StoryRepository {
             role: row.role,
             content: row.content,
             order: row.order,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+        }
+    }
+
+    private toProposal(row: typeof storyProposals.$inferSelect): StoryProposal {
+        return {
+            id: toId(row.id),
+            projectId: toId(row.projectId),
+            title: row.title,
+            enrichedText: row.enrichedText,
+            prompt: row.prompt,
+            proposedBy: row.proposedBy,
+            status: row.status,
+            reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
+            reviewNote: row.reviewNote,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
