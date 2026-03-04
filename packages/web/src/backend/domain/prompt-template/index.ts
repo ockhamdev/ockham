@@ -54,13 +54,13 @@ Please write a unit test for the following code using **Vitest** framework.
 
 ### Instructions
 1. Use \`vitest\` as the test framework (\`describe\`, \`test\`, \`expect\`)
-2. The \`describe\` block description MUST use format: \`[{{testId}}] <descriptive name>\`
-   - The ID prefix \`[{{testId}}]\` is mandatory for linking test results back to this test case
+2. The \`describe\` block description MUST use format: \`[unit:{{testId}}] <descriptive name>\`
+   - The ID prefix \`[unit:{{testId}}]\` is mandatory for linking test results back to this test case
    - Generate a clear, descriptive name based on the keyword \`{{keyword}}\` (do NOT just use the keyword literally)
 3. Use \`test()\` for each individual test case inside the \`describe\` block
 4. Example structure:
 \`\`\`typescript
-describe('[{{testId}}] <descriptive name based on {{keyword}}>', () => {
+describe('[unit:{{testId}}] <descriptive name based on {{keyword}}>', () => {
   // Positive cases
   test('should handle standard valid input', () => {
     // ...
@@ -121,7 +121,7 @@ Please write a spec/integration test that verifies the collaborative behavior of
    npx playwright install
    \`\`\`
 2. The test file should be placed in the \`tests/\` directory located at the same level as the nearest \`tsconfig.json\` relative to the source file being tested.
-3. The \`test.describe\` block description **MUST** use the format: \`[{{testId}}] {{title}}\`
+3. The \`test.describe\` block description **MUST** use the format: \`[spec:{{testId}}] {{title}}\`
 4. All test cases must comply with the **Group Preconditions** defined above (if any). Abstract reusable setup logic (e.g. login, database initialization) into shared fixtures or helper functions.
 5. Test the **collaborative behavior** between the listed syntax units.
 6. Include both positive and negative test cases:

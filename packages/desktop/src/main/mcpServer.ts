@@ -557,13 +557,14 @@ The description should contain:
             path: z.string().optional().describe('New file path'),
             description: z.string().optional().describe('New description'),
             content_hash: z.string().optional().describe('New content hash'),
+            implementation: z.string().optional().describe('Test implementation summary — set after writing the actual test code'),
         },
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-    }, async ({ git_remote_url, id, path: p, description, content_hash }) => {
+    }, async ({ git_remote_url, id, path: p, description, content_hash, implementation }) => {
         const r = await resolveProjectId(git_remote_url)
         if ('error' in r) return { content: [{ type: 'text' as const, text: r.error }] }
         try {
-            const result = await trpcMutation('testCase.updateUnitTestProposalContent', { id, path: p, description, contentHash: content_hash })
+            const result = await trpcMutation('testCase.updateUnitTestProposalContent', { id, path: p, description, contentHash: content_hash, implementation })
             return { content: [{ type: 'text' as const, text: `Updated:\n${JSON.stringify(result, null, 2)}` }] }
         } catch (e) { return { content: [{ type: 'text' as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` }] } }
     })
@@ -613,13 +614,14 @@ The description should contain:
             title: z.string().optional().describe('New title'),
             description: z.string().optional().describe('New description'),
             group_key: z.string().nullable().optional().describe('New group key'),
+            implementation: z.string().optional().describe('Test implementation summary — set after writing the actual test code'),
         },
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-    }, async ({ git_remote_url, id, title, description, group_key }) => {
+    }, async ({ git_remote_url, id, title, description, group_key, implementation }) => {
         const r = await resolveProjectId(git_remote_url)
         if ('error' in r) return { content: [{ type: 'text' as const, text: r.error }] }
         try {
-            const result = await trpcMutation('testCase.updateSpecTestProposalContent', { id, title, description, groupKey: group_key })
+            const result = await trpcMutation('testCase.updateSpecTestProposalContent', { id, title, description, groupKey: group_key, implementation })
             return { content: [{ type: 'text' as const, text: `Updated:\n${JSON.stringify(result, null, 2)}` }] }
         } catch (e) { return { content: [{ type: 'text' as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` }] } }
     })
@@ -714,3 +716,6 @@ The description should contain:
         } catch (e) { return { content: [{ type: 'text' as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` }] } }
     })
 }
+
+// ── Test-only exports ────────────────────────────────
+export { resolveProjectId as _resolveProjectId }

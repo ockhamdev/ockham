@@ -132,7 +132,7 @@ export function registerSpecTestsHandlers(): void {
                     const content = fs.readFileSync(path.join(ws, relPath), 'utf-8')
                     const lines = content.split('\n')
                     for (let i = 0; i < lines.length; i++) {
-                        const match = lines[i].match(/\[([a-f0-9]{40})\]/)
+                        const match = lines[i].match(/\[spec:([a-f0-9-]{36})\]/)
                         if (match && idSet.has(match[1])) {
                             result[match[1]] = { filePath: relPath, line: i + 1 }
                         }
