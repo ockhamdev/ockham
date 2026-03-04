@@ -160,6 +160,7 @@ export const unitTests = pgTable('unit_tests', {
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
+    implementation: text('implementation').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -191,6 +192,7 @@ export const specTests = pgTable('spec_tests', {
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
+    implementation: text('implementation').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -266,6 +268,7 @@ export const unitTestProposals = pgTable('unit_test_proposals', {
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
+    implementation: text('implementation').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -283,6 +286,7 @@ export const specTestProposals = pgTable('spec_test_proposals', {
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
+    implementation: text('implementation').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

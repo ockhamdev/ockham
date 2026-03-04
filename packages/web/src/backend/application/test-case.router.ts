@@ -32,6 +32,7 @@ export const testCaseRouter = router({
                 linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
+                implementation: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -55,6 +56,7 @@ export const testCaseRouter = router({
             path: z.string().optional(),
             contentHash: z.string().optional(),
             description: z.string().optional(),
+            implementation: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
             const { id, ...data } = input
@@ -108,6 +110,7 @@ export const testCaseRouter = router({
                 linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
+                implementation: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -125,6 +128,7 @@ export const testCaseRouter = router({
             title: z.string().optional(),
             description: z.string().optional(),
             groupId: z.string().nullable().optional(),
+            implementation: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
             const { id, ...data } = input
@@ -224,6 +228,7 @@ export const testCaseRouter = router({
                 linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
+                implementation: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -274,6 +279,7 @@ export const testCaseRouter = router({
                     linkedAt: now,
                     reviewedBy: toId(ctx.userId),
                     reviewNote: input.reviewNote,
+                    implementation: entry.implementation,
                     createdAt: entry.createdAt,
                     updatedAt: now,
                 })
@@ -309,6 +315,7 @@ export const testCaseRouter = router({
             path: z.string().optional(),
             description: z.string().optional(),
             contentHash: z.string().optional(),
+            implementation: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
             const { id, ...data } = input
@@ -316,6 +323,7 @@ export const testCaseRouter = router({
             if (data.path !== undefined) mapped.path = data.path
             if (data.description !== undefined) mapped.description = data.description
             if (data.contentHash !== undefined) mapped.contentHash = data.contentHash
+            if (data.implementation !== undefined) mapped.implementation = data.implementation
             // Reuse the existing updateUnitTestProposal which accepts partial updates
             const [row] = await (await import('@/backend/infrastructure/db')).db
                 .update((await import('@/backend/infrastructure/db/schema')).unitTestProposals)
@@ -356,6 +364,7 @@ export const testCaseRouter = router({
                 linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
+                implementation: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -406,6 +415,7 @@ export const testCaseRouter = router({
                     linkedAt: now,
                     reviewedBy: toId(ctx.userId),
                     reviewNote: input.reviewNote,
+                    implementation: entry.implementation,
                     createdAt: entry.createdAt,
                     updatedAt: now,
                 })
@@ -441,6 +451,7 @@ export const testCaseRouter = router({
             title: z.string().optional(),
             description: z.string().optional(),
             groupKey: z.string().nullable().optional(),
+            implementation: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
             const { id, ...data } = input
@@ -448,9 +459,48 @@ export const testCaseRouter = router({
             if (data.title !== undefined) mapped.title = data.title
             if (data.description !== undefined) mapped.description = data.description
             if (data.groupKey !== undefined) mapped.groupKey = data.groupKey
+            if (data.implementation !== undefined) mapped.implementation = data.implementation
             const [row] = await (await import('@/backend/infrastructure/db')).db
                 .update((await import('@/backend/infrastructure/db/schema')).specTestProposals)
                 .set({ ...mapped, updatedAt: new Date() })
+                .where((await import('drizzle-orm')).eq((await import('@/backend/infrastructure/db/schema')).specTestProposals.id, toId(id)))
+                .returning()
+            return row
+        }),
+
+    // ── Dedicated Implementation Update Endpoints (for MCP) ──
+
+    updateUnitTestImplementation: protectedProcedure
+        .input(z.object({ id: z.string(), implementation: z.string() }))
+        .mutation(async ({ input }) => {
+            return testCaseRepo.updateTestCase(toId(input.id), { implementation: input.implementation })
+        }),
+
+    updateSpecTestImplementation: protectedProcedure
+        .input(z.object({ id: z.string(), implementation: z.string() }))
+        .mutation(async ({ input }) => {
+            return testCaseRepo.updateSpecTest(toId(input.id), { implementation: input.implementation })
+        }),
+
+    updateUnitTestProposalImplementation: protectedProcedure
+        .input(z.object({ id: z.string(), implementation: z.string() }))
+        .mutation(async ({ input }) => {
+            const { id, implementation } = input
+            const [row] = await (await import('@/backend/infrastructure/db')).db
+                .update((await import('@/backend/infrastructure/db/schema')).unitTestProposals)
+                .set({ implementation, updatedAt: new Date() })
+                .where((await import('drizzle-orm')).eq((await import('@/backend/infrastructure/db/schema')).unitTestProposals.id, toId(id)))
+                .returning()
+            return row
+        }),
+
+    updateSpecTestProposalImplementation: protectedProcedure
+        .input(z.object({ id: z.string(), implementation: z.string() }))
+        .mutation(async ({ input }) => {
+            const { id, implementation } = input
+            const [row] = await (await import('@/backend/infrastructure/db')).db
+                .update((await import('@/backend/infrastructure/db/schema')).specTestProposals)
+                .set({ implementation, updatedAt: new Date() })
                 .where((await import('drizzle-orm')).eq((await import('@/backend/infrastructure/db/schema')).specTestProposals.id, toId(id)))
                 .returning()
             return row

@@ -93,7 +93,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
         return rows.map((r) => this.toSpecTest(r))
     }
 
-    async updateSpecTest(id: Id, data: Partial<Pick<SpecTest, 'title' | 'description' | 'groupId' | 'linkedFilePath' | 'linkedHash' | 'linkedAt'>>): Promise<SpecTest> {
+    async updateSpecTest(id: Id, data: Partial<Pick<SpecTest, 'title' | 'description' | 'groupId' | 'linkedFilePath' | 'linkedHash' | 'linkedAt' | 'implementation'>>): Promise<SpecTest> {
         const [row] = await db
             .update(specTests)
             .set({ ...data, updatedAt: new Date() })
@@ -197,7 +197,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
         return row ? this.toUnitTestProposal(row) : null
     }
 
-    async updateUnitTestProposal(id: Id, data: Partial<Pick<UnitTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote'>>): Promise<UnitTestProposal> {
+    async updateUnitTestProposal(id: Id, data: Partial<Pick<UnitTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote' | 'implementation'>>): Promise<UnitTestProposal> {
         const [row] = await db
             .update(unitTestProposals)
             .set({ ...data, updatedAt: new Date() })
@@ -246,7 +246,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
         return row ? this.toSpecTestProposal(row) : null
     }
 
-    async updateSpecTestProposal(id: Id, data: Partial<Pick<SpecTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote'>>): Promise<SpecTestProposal> {
+    async updateSpecTestProposal(id: Id, data: Partial<Pick<SpecTestProposal, 'status' | 'linkedFilePath' | 'linkedHash' | 'reviewedBy' | 'reviewNote' | 'implementation'>>): Promise<SpecTestProposal> {
         const [row] = await db
             .update(specTestProposals)
             .set({ ...data, updatedAt: new Date() })
@@ -281,6 +281,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
+            implementation: row.implementation,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
@@ -301,6 +302,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
+            implementation: row.implementation,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
@@ -347,6 +349,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
+            implementation: row.implementation,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
@@ -366,6 +369,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
+            implementation: row.implementation,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }

@@ -81,7 +81,12 @@ describe('[{{testId}}] <descriptive name based on {{keyword}}>', () => {
 6. Use \`test()\` for unique individual cases; use \`test.each()\` for parameterized/data-driven scenarios with multiple input-output pairs
 7. Mock external dependencies as needed
 8. Cover edge cases and error handling — every validation rule must have at least one counterexample
-9. Do NOT write the test code immediately. First propose the test logic and cases, then wait for user confirmation before writing the actual test implementation`
+9. Do NOT write the test code immediately. First propose the test logic and cases, then wait for user confirmation before writing the actual test implementation
+10. After completing the test implementation, you **MUST** call the MCP tool \`ockham_update_unit_test_proposal\` (or \`ockham_update_unit_test\` if updating an existing test) with the \`implementation\` field set to a concise summary of:
+    - The test file path and framework used
+    - Key test scenarios covered (positive + negative)
+    - Important mocks or fixtures set up
+    - Any notable edge cases or boundary conditions tested`
 
 export const DEFAULT_SPEC_TEST_TEMPLATE = `## Spec Test Generation
 
@@ -124,4 +129,9 @@ Please write a spec/integration test that verifies the collaborative behavior of
    - Negative: verify error handling with invalid inputs, unauthorized access, conflicting states
 7. Mock external dependencies as needed.
 8. Cover edge cases and error handling — every validation rule must have at least one counterexample.
-9. Do **NOT** write the test code immediately. First propose the test logic and cases, then wait for user confirmation.`
+9. Do **NOT** write the test code immediately. First propose the test logic and cases, then wait for user confirmation.
+10. After completing the test implementation, you **MUST** call the MCP tool \`ockham_update_spec_test_proposal\` (or \`ockham_update_spec_test\` if updating an existing test) with the \`implementation\` field set to a concise summary of:
+    - The test file path and framework used
+    - Key test scenarios covered (positive + negative)
+    - Important page objects or fixtures set up
+    - Any notable edge cases or boundary conditions tested`

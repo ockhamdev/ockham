@@ -39,6 +39,7 @@ export interface SpecTest extends BaseEntity {
     readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
+    readonly implementation: string
 }
 
 /**
@@ -57,6 +58,7 @@ export interface TestCase extends BaseEntity {
     readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
+    readonly implementation: string
 }
 
 /**
@@ -79,6 +81,7 @@ export interface UnitTestProposal extends BaseEntity {
     readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
+    readonly implementation: string
 }
 
 /**
@@ -96,5 +99,6 @@ export interface SpecTestProposal extends BaseEntity {
     readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
+    readonly implementation: string
 }
 
