@@ -257,5 +257,23 @@ export const storyRouter = router({
         .mutation(async ({ input }) => {
             await storyRepo.deleteProposal(toId(input.id))
         }),
+
+    batchDeleteProposals: protectedProcedure
+        .input(z.object({ ids: z.array(z.string()).min(1) }))
+        .mutation(async ({ input }) => {
+            await storyRepo.batchDeleteProposals(input.ids.map(toId))
+        }),
+
+    updateProposalContent: protectedProcedure
+        .input(z.object({
+            id: z.string(),
+            title: z.string().optional(),
+            enrichedText: z.string().optional(),
+            prompt: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+            const { id, ...data } = input
+            return storyRepo.updateProposal(toId(id), data)
+        }),
 })
 

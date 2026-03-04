@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { unitTests, specTests, specGroups, specTestUnits, unitTestProposals, specTestProposals } from '../db/schema'
 import { toId } from '@/backend/domain/shared'
@@ -24,9 +24,13 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             contentHash: testCase.contentHash,
             description: testCase.description,
             createdBy: testCase.createdBy,
+            proposedBy: testCase.proposedBy,
+            status: testCase.status,
             linkedFilePath: testCase.linkedFilePath,
             linkedHash: testCase.linkedHash,
             linkedAt: testCase.linkedAt,
+            reviewedBy: testCase.reviewedBy,
+            reviewNote: testCase.reviewNote,
             createdAt: testCase.createdAt,
             updatedAt: testCase.updatedAt,
         }).returning()
@@ -63,11 +67,16 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             id: specTest.id,
             projectId: specTest.projectId,
             groupId: specTest.groupId,
+            groupKey: specTest.groupKey,
             title: specTest.title,
             description: specTest.description,
+            proposedBy: specTest.proposedBy,
+            status: specTest.status,
             linkedFilePath: specTest.linkedFilePath,
             linkedHash: specTest.linkedHash,
             linkedAt: specTest.linkedAt,
+            reviewedBy: specTest.reviewedBy,
+            reviewNote: specTest.reviewNote,
             createdAt: specTest.createdAt,
             updatedAt: specTest.updatedAt,
         }).returning()
@@ -201,6 +210,11 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
         await db.delete(unitTestProposals).where(eq(unitTestProposals.id, id))
     }
 
+    async batchDeleteUnitTestProposals(ids: Id[]): Promise<void> {
+        if (ids.length === 0) return
+        await db.delete(unitTestProposals).where(inArray(unitTestProposals.id, ids))
+    }
+
     // ── Spec Test Proposals ──
 
     async createSpecTestProposal(entry: SpecTestProposal): Promise<SpecTestProposal> {
@@ -245,6 +259,11 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
         await db.delete(specTestProposals).where(eq(specTestProposals.id, id))
     }
 
+    async batchDeleteSpecTestProposals(ids: Id[]): Promise<void> {
+        if (ids.length === 0) return
+        await db.delete(specTestProposals).where(inArray(specTestProposals.id, ids))
+    }
+
     // ── Mappers ──
 
     private toTestCase(row: typeof unitTests.$inferSelect): TestCase {
@@ -255,9 +274,13 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             contentHash: row.contentHash,
             description: row.description,
             createdBy: toId(row.createdBy),
+            proposedBy: row.proposedBy ?? null,
+            status: row.status,
             linkedFilePath: row.linkedFilePath,
             linkedHash: row.linkedHash,
             linkedAt: row.linkedAt,
+            reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
+            reviewNote: row.reviewNote,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
@@ -268,11 +291,16 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             id: toId(row.id),
             projectId: toId(row.projectId),
             groupId: row.groupId ? toId(row.groupId) : null,
+            groupKey: row.groupKey ?? null,
             title: row.title,
             description: row.description,
+            proposedBy: row.proposedBy ?? null,
+            status: row.status,
             linkedFilePath: row.linkedFilePath,
             linkedHash: row.linkedHash,
             linkedAt: row.linkedAt,
+            reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
+            reviewNote: row.reviewNote,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         }
@@ -316,6 +344,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             status: row.status,
             linkedFilePath: row.linkedFilePath,
             linkedHash: row.linkedHash,
+            linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
             createdAt: row.createdAt,
@@ -334,6 +363,7 @@ export class DrizzleTestCaseRepository implements TestCaseRepository {
             status: row.status,
             linkedFilePath: row.linkedFilePath,
             linkedHash: row.linkedHash,
+            linkedAt: row.linkedAt,
             reviewedBy: row.reviewedBy ? toId(row.reviewedBy) : null,
             reviewNote: row.reviewNote,
             createdAt: row.createdAt,

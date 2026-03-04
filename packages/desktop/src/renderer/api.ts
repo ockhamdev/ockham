@@ -62,6 +62,26 @@ async function trpcMutation<T = unknown>(path: string, input: unknown): Promise<
 
 // ── Auth ──
 
+/**
+ * Extract full signed session cookie from set-cookie headers.
+ * In same-origin (Vite proxy), getSetCookie() returns the signed cookie.
+ * In cross-origin (production file://), it may not be available.
+ */
+function extractSessionCookie(res: Response): string | null {
+    try {
+        const setCookie = res.headers.getSetCookie?.() || []
+        for (const cookie of setCookie) {
+            const match = cookie.match(/better-auth\.session_token=([^;]+)/)
+            if (match) {
+                return decodeURIComponent(match[1])
+            }
+        }
+    } catch {
+        // getSetCookie may not be available in all environments
+    }
+    return null
+}
+
 export async function apiLogin(email: string, password: string): Promise<{
     token: string; userId: string; userName: string; email: string
 }> {
@@ -83,7 +103,8 @@ export async function apiLogin(email: string, password: string): Promise<{
         throw new Error(body?.message || body?.error?.message || `Login failed (${res.status})`)
     }
 
-    const token = body?.session?.token || body?.token
+    // Prefer full signed cookie from set-cookie header, fall back to body token
+    const token = extractSessionCookie(res) || body?.session?.token || body?.token
     const user = body?.user
 
     if (!token || !user) {
@@ -121,7 +142,8 @@ export async function apiRegister(email: string, password: string): Promise<{
         throw new Error(body?.message || body?.error?.message || `Registration failed (${res.status})`)
     }
 
-    const token = body?.session?.token || body?.token
+    // Prefer full signed cookie from set-cookie header, fall back to body token
+    const token = extractSessionCookie(res) || body?.session?.token || body?.token
     const user = body?.user
 
     if (!token || !user) {
@@ -181,6 +203,10 @@ export interface Project {
 
 export async function ensureProject(teamId: string, slug: string, name: string): Promise<Project> {
     return trpcMutation<Project>('project.ensureBySlug', { teamId, slug, name })
+}
+
+export async function listProjects(teamId: string): Promise<Project[]> {
+    return trpcQuery<Project[]>('project.list', { teamId })
 }
 
 // ── Team AI Config ──
@@ -575,38 +601,3 @@ export async function deleteStoryProposal(id: string): Promise<void> {
     await trpcMutation('story.deleteProposal', { id })
 }
 
-// ── User Tokens ──
-
-export interface UserTokenListItem {
-    id: string
-    name: string
-    tokenPrefix: string
-    expiresAt: string | null
-    lastUsedAt: string | null
-    revokedAt: string | null
-    createdAt: string
-    isExpired: boolean
-    isRevoked: boolean
-}
-
-export interface UserTokenCreateResult extends UserTokenListItem {
-    rawToken: string
-}
-
-export async function createUserToken(data: {
-    name: string; expiresInDays?: number
-}): Promise<UserTokenCreateResult> {
-    return trpcMutation<UserTokenCreateResult>('userToken.create', data)
-}
-
-export async function listUserTokens(): Promise<UserTokenListItem[]> {
-    return trpcQuery<UserTokenListItem[]>('userToken.list', undefined)
-}
-
-export async function revokeUserToken(id: string): Promise<void> {
-    await trpcMutation('userToken.revoke', { id })
-}
-
-export async function deleteUserToken(id: string): Promise<void> {
-    await trpcMutation('userToken.delete', { id })
-}

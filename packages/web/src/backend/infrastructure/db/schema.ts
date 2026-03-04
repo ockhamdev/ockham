@@ -144,6 +144,8 @@ export const storyMessages = pgTable('story_messages', {
 
 // ── Unit Tests ────────────────────────────────────────
 
+export const proposalStatusEnum = pgEnum('proposal_status', ['pending', 'approved', 'rejected'])
+
 export const unitTests = pgTable('unit_tests', {
     id: uuid('id').primaryKey(),
     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
@@ -151,9 +153,13 @@ export const unitTests = pgTable('unit_tests', {
     contentHash: text('content_hash').notNull().default(''),
     description: text('description').notNull().default(''),
     createdBy: uuid('created_by').notNull().references(() => users.id),
+    proposedBy: text('proposed_by'),
+    status: proposalStatusEnum('status').notNull().default('approved'),
     linkedFilePath: text('linked_file_path'),
     linkedHash: text('linked_hash'),
     linkedAt: timestamp('linked_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -175,11 +181,16 @@ export const specTests = pgTable('spec_tests', {
     id: uuid('id').primaryKey(),
     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
     groupId: uuid('group_id').references(() => specGroups.id, { onDelete: 'set null' }),
+    groupKey: text('group_key'),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    proposedBy: text('proposed_by'),
+    status: proposalStatusEnum('status').notNull().default('approved'),
     linkedFilePath: text('linked_file_path'),
     linkedHash: text('linked_hash'),
     linkedAt: timestamp('linked_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -242,8 +253,6 @@ export const promptTemplates = pgTable('prompt_templates', {
 
 // ── Proposals (External) ───────────────────────────────
 
-export const proposalStatusEnum = pgEnum('proposal_status', ['pending', 'approved', 'rejected'])
-
 export const unitTestProposals = pgTable('unit_test_proposals', {
     id: uuid('id').primaryKey(),
     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
@@ -254,6 +263,7 @@ export const unitTestProposals = pgTable('unit_test_proposals', {
     status: proposalStatusEnum('status').notNull().default('pending'),
     linkedFilePath: text('linked_file_path'),
     linkedHash: text('linked_hash'),
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -270,6 +280,7 @@ export const specTestProposals = pgTable('spec_test_proposals', {
     status: proposalStatusEnum('status').notNull().default('pending'),
     linkedFilePath: text('linked_file_path'),
     linkedHash: text('linked_hash'),
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewNote: text('review_note').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -290,17 +301,3 @@ export const storyProposals = pgTable('story_proposals', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// ── User Tokens (API / MCP Authorization) ─────────────
-
-export const userTokens = pgTable('user_tokens', {
-    id: uuid('id').primaryKey(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),                           // e.g. "My MCP Token"
-    tokenHash: text('token_hash').notNull().unique(),       // SHA-256 of raw token
-    tokenPrefix: text('token_prefix').notNull(),            // e.g. "okt_a3b8d1b6" (display only)
-    scopes: text('scopes').notNull().default('[]'),         // JSON array: ["mcp:read","mcp:write"]
-    expiresAt: timestamp('expires_at', { withTimezone: true }),     // NULL = never expires
-    lastUsedAt: timestamp('last_used_at', { withTimezone: true }), // updated on each use
-    revokedAt: timestamp('revoked_at', { withTimezone: true }),    // NULL = active
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})

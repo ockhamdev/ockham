@@ -9,7 +9,6 @@ import { knowledgeEntryRouter } from './knowledge-entry.router'
 import { issueRouter } from './issue.router'
 import { projectKnowledgeRouter } from './project-knowledge.router'
 import { promptTemplateRouter } from './prompt-template.router'
-import { userTokenRouter } from './user-token.router'
 
 /**
  * 根 tRPC 路由器
@@ -25,9 +24,6 @@ export const appRouter = router({
     issue: issueRouter,
     projectKnowledge: projectKnowledgeRouter,
     promptTemplate: promptTemplateRouter,
-    userToken: userTokenRouter,
 })
 
 export type AppRouter = typeof appRouter
-
-

@@ -29,11 +29,16 @@ export interface SpecTestGroup extends BaseEntity {
 export interface SpecTest extends BaseEntity {
     readonly projectId: Id
     readonly groupId: Id | null
+    readonly groupKey: string | null
     readonly title: string
     readonly description: string
+    readonly proposedBy: string | null
+    readonly status: ProposalStatus
     readonly linkedFilePath: string | null
     readonly linkedHash: string | null
     readonly linkedAt: Date | null
+    readonly reviewedBy: Id | null
+    readonly reviewNote: string
 }
 
 /**
@@ -45,9 +50,13 @@ export interface TestCase extends BaseEntity {
     readonly contentHash: string
     readonly description: string
     readonly createdBy: Id
+    readonly proposedBy: string | null
+    readonly status: ProposalStatus
     readonly linkedFilePath: string | null
     readonly linkedHash: string | null
     readonly linkedAt: Date | null
+    readonly reviewedBy: Id | null
+    readonly reviewNote: string
 }
 
 /**
@@ -67,6 +76,7 @@ export interface UnitTestProposal extends BaseEntity {
     readonly status: ProposalStatus
     readonly linkedFilePath: string | null
     readonly linkedHash: string | null
+    readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
 }
@@ -83,6 +93,7 @@ export interface SpecTestProposal extends BaseEntity {
     readonly status: ProposalStatus
     readonly linkedFilePath: string | null
     readonly linkedHash: string | null
+    readonly linkedAt: Date | null
     readonly reviewedBy: Id | null
     readonly reviewNote: string
 }

@@ -22,7 +22,6 @@ import {
     TeamOutlined,
     PlusOutlined,
     BugOutlined,
-    KeyOutlined,
 } from '@ant-design/icons'
 import { useTheme, type ThemeMode } from './hooks/useTheme'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -39,7 +38,6 @@ import { KnowledgeBasePage } from './containers/KnowledgeBasePage'
 import { IssuesPage } from './containers/IssuesPage'
 import { ProjectKnowledgePage } from './containers/ProjectKnowledgePage'
 import { ProposalsPage } from './containers/ProposalsPage'
-import { TokensPage } from './containers/TokensPage'
 import { getStoredSession, getStoredToken, apiLogout, ensureTeam, listTeams, createTeam, ensureProject, type Project } from './api'
 import './styles/global.css'
 
@@ -320,13 +318,6 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                                 },
                                 { type: 'divider' as const },
                                 {
-                                    key: 'tokens',
-                                    icon: <KeyOutlined />,
-                                    label: 'API Tokens',
-                                    onClick: () => navigate('/tokens'),
-                                },
-                                { type: 'divider' as const },
-                                {
                                     key: 'logout',
                                     icon: <LogoutOutlined />,
                                     label: 'Logout',
@@ -385,7 +376,7 @@ function AppLayout({ currentWorkspace, openWorkspace, session, onLogout, onClose
                                 ? <ProposalsPage projectId={currentProject.id} />
                                 : <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spin /></div>
                         } />
-                        <Route path="/tokens" element={<TokensPage />} />
+
                     </Routes>
                 </Content>
                 <StatusBar />
@@ -477,16 +468,24 @@ export default function App() {
         init()
     }, [])
 
-    // Auto-resolve project from team + workspace
+    // Auto-resolve project from team + workspace (using git remote origin as slug)
     useEffect(() => {
         if (!currentTeam || !currentWorkspace) {
             setCurrentProject(null)
             return
         }
-        const slug = currentWorkspace.split('/').pop() || currentWorkspace
-        ensureProject(currentTeam.id, slug, slug)
-            .then((proj) => setCurrentProject(proj))
-            .catch((err) => console.warn('[App] Project resolve failed:', err))
+        ; (async () => {
+            try {
+                // Use git remote origin as slug (matches MCP project creation)
+                const remoteOrigin = await window.gitApi.getRemoteOrigin(currentWorkspace)
+                const slug = remoteOrigin || currentWorkspace.split('/').pop() || currentWorkspace
+                const name = slug.replace(/\.git$/, '').split('/').pop() || slug
+                const proj = await ensureProject(currentTeam.id, slug, name)
+                setCurrentProject(proj)
+            } catch (err) {
+                console.warn('[App] Project resolve failed:', err)
+            }
+        })()
     }, [currentTeam, currentWorkspace])
 
     const handleCreateTeam = async (values: { name: string }) => {
@@ -545,9 +544,7 @@ export default function App() {
                                     }} />
                                 ) : !currentWorkspace ? (
                                     <WelcomePage
-                                        recentWorkspaces={recentWorkspaces}
                                         openWorkspace={openWorkspace}
-                                        removeRecent={removeRecent}
                                     />
                                 ) : (
                                     <AppLayout

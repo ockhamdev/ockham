@@ -17,6 +17,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         setLoading(true)
         try {
             const session = await apiLogin(values.email, values.password)
+            // Sync session to main process so MCP server can use it
+            await window.authApi.syncSession(session)
             message.success('Logged in successfully')
             onLoginSuccess(session)
         } catch (err: unknown) {
@@ -30,6 +32,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         setLoading(true)
         try {
             const session = await apiRegister(values.email, values.password)
+            // Sync session to main process so MCP server can use it
+            await window.authApi.syncSession(session)
             message.success('Account created successfully')
             onLoginSuccess(session)
         } catch (err: unknown) {

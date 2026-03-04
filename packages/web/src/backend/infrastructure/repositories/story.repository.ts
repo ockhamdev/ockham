@@ -1,4 +1,4 @@
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { stories, storyMessages, storyProposals } from '../db/schema'
 import { toId } from '@/backend/domain/shared'
@@ -100,7 +100,7 @@ export class DrizzleStoryRepository implements StoryRepository {
         return rows.map((r) => this.toProposal(r))
     }
 
-    async updateProposal(id: Id, data: Partial<Pick<StoryProposal, 'status' | 'reviewedBy' | 'reviewNote'>>): Promise<StoryProposal> {
+    async updateProposal(id: Id, data: Partial<Pick<StoryProposal, 'title' | 'enrichedText' | 'prompt' | 'status' | 'reviewedBy' | 'reviewNote'>>): Promise<StoryProposal> {
         const [row] = await db
             .update(storyProposals)
             .set({ ...data, updatedAt: new Date() })
@@ -111,6 +111,11 @@ export class DrizzleStoryRepository implements StoryRepository {
 
     async deleteProposal(id: Id): Promise<void> {
         await db.delete(storyProposals).where(eq(storyProposals.id, id))
+    }
+
+    async batchDeleteProposals(ids: Id[]): Promise<void> {
+        if (ids.length === 0) return
+        await db.delete(storyProposals).where(inArray(storyProposals.id, ids))
     }
 
     // ── Mappers ──

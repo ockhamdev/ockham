@@ -64,8 +64,24 @@ function buildHeaders(token?: string): Record<string, string> {
 }
 
 /**
+ * Extract full signed session cookie from set-cookie headers.
+ * better-auth cookie format: `better-auth.session_token=<token>.<signature>`
+ */
+function extractSessionCookie(res: Response): string | null {
+    const setCookie = res.headers.getSetCookie?.() || []
+    for (const cookie of setCookie) {
+        const match = cookie.match(/better-auth\.session_token=([^;]+)/)
+        if (match) {
+            return decodeURIComponent(match[1])
+        }
+    }
+    return null
+}
+
+/**
  * Login to the Web backend and return the session token.
- * better-auth returns { session: { token }, user: { id, name, email } } in the body.
+ * better-auth uses signed cookies: the set-cookie value is `token.signature`
+ * which is required for session validation. We extract that full value.
  */
 export async function apiLogin(email: string, password: string): Promise<{
     token: string
@@ -92,32 +108,24 @@ export async function apiLogin(email: string, password: string): Promise<{
         throw new Error(msg)
     }
 
-    // better-auth body shape: { session: { token }, user: { ... } }
-    const token = body?.session?.token || body?.token
+    // Extract full signed cookie token from set-cookie header (preferred)
+    const cookieToken = extractSessionCookie(res)
+
+    // Use cookie token (signed, works with getSession) or fall back to body token
+    const token = cookieToken || body?.session?.token || body?.token
     const user = body?.user
 
     if (token && user) {
         return { token, user }
     }
 
-    // Fall back to set-cookie header
-    const setCookie = res.headers.getSetCookie?.() || []
-    let cookieToken = ''
-    for (const cookie of setCookie) {
-        const match = cookie.match(/better-auth\.session_token=([^;]+)/)
-        if (match) {
-            cookieToken = match[1]
-            break
-        }
-    }
-
-    if (!cookieToken) {
+    if (!token) {
         throw new Error('Login succeeded but no session token was returned')
     }
 
     // Fetch user info with the token
     const sessionRes = await fetch(`${BASE_URL}/api/auth/get-session`, {
-        headers: buildHeaders(cookieToken),
+        headers: buildHeaders(token),
     })
     const sessionData = await sessionRes.json() as { user?: { id: string; name: string; email: string } }
 
@@ -125,7 +133,7 @@ export async function apiLogin(email: string, password: string): Promise<{
         throw new Error('Failed to fetch user info after login')
     }
 
-    return { token: cookieToken, user: sessionData.user }
+    return { token, user: sessionData.user }
 }
 
 /**
@@ -144,7 +152,6 @@ export async function apiRegister(email: string, password: string): Promise<{
         body: JSON.stringify({ name, email, password }),
     })
 
-    // Read body first — better-auth returns { session: { token }, user } on success
     const body = await res.json().catch(() => null) as {
         session?: { token?: string }
         token?: string
@@ -158,21 +165,13 @@ export async function apiRegister(email: string, password: string): Promise<{
         throw new Error(msg)
     }
 
-    // better-auth returns { session: { token }, user: { ... } }
-    const sessionToken = body?.session?.token || body?.token
-    if (sessionToken && body?.user) {
-        return { token: sessionToken, user: body.user }
-    }
+    // Extract full signed cookie token from set-cookie header (preferred)
+    const cookieToken = extractSessionCookie(res)
+    const token = cookieToken || body?.session?.token || body?.token
+    const user = body?.user
 
-    // Fall back to set-cookie header
-    const setCookie = res.headers.getSetCookie?.() || []
-    let token = ''
-    for (const cookie of setCookie) {
-        const match = cookie.match(/better-auth\.session_token=([^;]+)/)
-        if (match) {
-            token = match[1]
-            break
-        }
+    if (token && user) {
+        return { token, user }
     }
 
     if (!token) {

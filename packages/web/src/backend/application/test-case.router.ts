@@ -25,9 +25,13 @@ export const testCaseRouter = router({
                 contentHash: input.contentHash,
                 description: input.description,
                 createdBy: toId(ctx.userId),
+                proposedBy: null,
+                status: 'approved',
                 linkedFilePath: null,
                 linkedHash: null,
                 linkedAt: null,
+                reviewedBy: null,
+                reviewNote: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -94,11 +98,16 @@ export const testCaseRouter = router({
                 id: createId(),
                 projectId: toId(input.projectId),
                 groupId: input.groupId ? toId(input.groupId) : null,
+                groupKey: null,
                 title: input.title,
                 description: input.description,
+                proposedBy: null,
+                status: 'approved',
                 linkedFilePath: null,
                 linkedHash: null,
                 linkedAt: null,
+                reviewedBy: null,
+                reviewNote: '',
                 createdAt: now,
                 updatedAt: now,
             })
@@ -212,6 +221,7 @@ export const testCaseRouter = router({
                 status: 'pending',
                 linkedFilePath: null,
                 linkedHash: null,
+                linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
                 createdAt: now,
@@ -248,7 +258,7 @@ export const testCaseRouter = router({
                     throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Test must be linked before approval' })
                 }
 
-                // Create actual unit test from proposal
+                // Move proposal → unit test
                 const now = new Date()
                 await testCaseRepo.createTestCase({
                     id: createId(),
@@ -257,16 +267,25 @@ export const testCaseRouter = router({
                     contentHash: entry.contentHash,
                     description: entry.description,
                     createdBy: toId(ctx.userId),
+                    proposedBy: entry.proposedBy,
+                    status: 'approved',
                     linkedFilePath: entry.linkedFilePath,
                     linkedHash: entry.linkedHash,
                     linkedAt: now,
-                    createdAt: now,
+                    reviewedBy: toId(ctx.userId),
+                    reviewNote: input.reviewNote,
+                    createdAt: entry.createdAt,
                     updatedAt: now,
                 })
+
+                // Delete proposal after successful move
+                await testCaseRepo.deleteUnitTestProposal(toId(input.id))
+                return { moved: true }
             }
 
+            // Reject: keep proposal with rejected status
             return testCaseRepo.updateUnitTestProposal(toId(input.id), {
-                status: input.action === 'approve' ? 'approved' : 'rejected',
+                status: 'rejected',
                 reviewedBy: toId(ctx.userId),
                 reviewNote: input.reviewNote,
             })
@@ -276,6 +295,34 @@ export const testCaseRouter = router({
         .input(z.object({ id: z.string() }))
         .mutation(async ({ input }) => {
             await testCaseRepo.deleteUnitTestProposal(toId(input.id))
+        }),
+
+    batchDeleteUnitTestProposals: protectedProcedure
+        .input(z.object({ ids: z.array(z.string()).min(1) }))
+        .mutation(async ({ input }) => {
+            await testCaseRepo.batchDeleteUnitTestProposals(input.ids.map(toId))
+        }),
+
+    updateUnitTestProposalContent: protectedProcedure
+        .input(z.object({
+            id: z.string(),
+            path: z.string().optional(),
+            description: z.string().optional(),
+            contentHash: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+            const { id, ...data } = input
+            const mapped: Record<string, unknown> = {}
+            if (data.path !== undefined) mapped.path = data.path
+            if (data.description !== undefined) mapped.description = data.description
+            if (data.contentHash !== undefined) mapped.contentHash = data.contentHash
+            // Reuse the existing updateUnitTestProposal which accepts partial updates
+            const [row] = await (await import('@/backend/infrastructure/db')).db
+                .update((await import('@/backend/infrastructure/db/schema')).unitTestProposals)
+                .set({ ...mapped, updatedAt: new Date() })
+                .where((await import('drizzle-orm')).eq((await import('@/backend/infrastructure/db/schema')).unitTestProposals.id, toId(id)))
+                .returning()
+            return row
         }),
 
     // ── Spec Test Proposals ──
@@ -306,6 +353,7 @@ export const testCaseRouter = router({
                 status: 'pending',
                 linkedFilePath: null,
                 linkedHash: null,
+                linkedAt: null,
                 reviewedBy: null,
                 reviewNote: '',
                 createdAt: now,
@@ -342,24 +390,34 @@ export const testCaseRouter = router({
                     throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Test must be linked before approval' })
                 }
 
-                // Create actual spec test from proposal
+                // Move proposal → spec test
                 const now = new Date()
                 await testCaseRepo.createSpecTest({
                     id: createId(),
                     projectId: entry.projectId,
                     groupId: null,
+                    groupKey: entry.groupKey ?? null,
                     title: entry.title,
                     description: entry.description,
+                    proposedBy: entry.proposedBy,
+                    status: 'approved',
                     linkedFilePath: entry.linkedFilePath,
                     linkedHash: entry.linkedHash,
                     linkedAt: now,
-                    createdAt: now,
+                    reviewedBy: toId(ctx.userId),
+                    reviewNote: input.reviewNote,
+                    createdAt: entry.createdAt,
                     updatedAt: now,
                 })
+
+                // Delete proposal after successful move
+                await testCaseRepo.deleteSpecTestProposal(toId(input.id))
+                return { moved: true }
             }
 
+            // Reject: keep proposal with rejected status
             return testCaseRepo.updateSpecTestProposal(toId(input.id), {
-                status: input.action === 'approve' ? 'approved' : 'rejected',
+                status: 'rejected',
                 reviewedBy: toId(ctx.userId),
                 reviewNote: input.reviewNote,
             })
@@ -369,6 +427,33 @@ export const testCaseRouter = router({
         .input(z.object({ id: z.string() }))
         .mutation(async ({ input }) => {
             await testCaseRepo.deleteSpecTestProposal(toId(input.id))
+        }),
+
+    batchDeleteSpecTestProposals: protectedProcedure
+        .input(z.object({ ids: z.array(z.string()).min(1) }))
+        .mutation(async ({ input }) => {
+            await testCaseRepo.batchDeleteSpecTestProposals(input.ids.map(toId))
+        }),
+
+    updateSpecTestProposalContent: protectedProcedure
+        .input(z.object({
+            id: z.string(),
+            title: z.string().optional(),
+            description: z.string().optional(),
+            groupKey: z.string().nullable().optional(),
+        }))
+        .mutation(async ({ input }) => {
+            const { id, ...data } = input
+            const mapped: Record<string, unknown> = {}
+            if (data.title !== undefined) mapped.title = data.title
+            if (data.description !== undefined) mapped.description = data.description
+            if (data.groupKey !== undefined) mapped.groupKey = data.groupKey
+            const [row] = await (await import('@/backend/infrastructure/db')).db
+                .update((await import('@/backend/infrastructure/db/schema')).specTestProposals)
+                .set({ ...mapped, updatedAt: new Date() })
+                .where((await import('drizzle-orm')).eq((await import('@/backend/infrastructure/db/schema')).specTestProposals.id, toId(id)))
+                .returning()
+            return row
         }),
 })
 

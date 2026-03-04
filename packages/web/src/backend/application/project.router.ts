@@ -47,7 +47,8 @@ export const projectRouter = router({
         }))
         .mutation(async ({ input }) => {
             const teamId = toId(input.teamId)
-            const existing = await projectRepo.findBySlug(teamId, input.slug)
+            const slug = normalizeGitRemoteUrl(input.slug)
+            const existing = await projectRepo.findBySlug(teamId, slug)
             if (existing) return existing
 
             const now = new Date()
@@ -55,7 +56,7 @@ export const projectRouter = router({
                 id: createId(),
                 teamId,
                 name: input.name,
-                slug: input.slug,
+                slug,
                 description: '',
                 createdAt: now,
                 updatedAt: now,

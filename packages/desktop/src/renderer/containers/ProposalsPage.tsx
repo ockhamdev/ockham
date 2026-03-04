@@ -18,6 +18,8 @@ import {
     Row,
     Col,
     Card,
+    Drawer,
+    Descriptions,
 } from 'antd'
 import {
     CheckCircleOutlined,
@@ -25,6 +27,7 @@ import {
     DeleteOutlined,
     ExclamationCircleOutlined,
     PlusOutlined,
+    ReloadOutlined,
     FileTextOutlined,
     ExperimentOutlined,
     BookOutlined,
@@ -66,6 +69,11 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
     const [stories, setStories] = useState<StoryProposal[]>([])
     const [loading, setLoading] = useState(false)
     const [reviewNote, setReviewNote] = useState('')
+
+    // Detail drawer state
+    const [detailOpen, setDetailOpen] = useState(false)
+    const [detailType, setDetailType] = useState<'unit' | 'spec' | 'story'>('unit')
+    const [detailRecord, setDetailRecord] = useState<UnitTestProposal | SpecTestProposal | StoryProposal | null>(null)
 
     // Create modal
     const [showCreate, setShowCreate] = useState(false)
@@ -270,7 +278,8 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
             label: <Badge count={pendingUnit} offset={[10, 0]} size="small"><Space><FileTextOutlined />Unit Tests</Space></Badge>,
             children: (
                 <Table dataSource={unitTests} columns={unitColumns} rowKey="id" loading={loading} size="small" pagination={false}
-                    locale={{ emptyText: <Empty description="No unit test proposals" /> }} />
+                    locale={{ emptyText: <Empty description="No unit test proposals" /> }}
+                    onRow={(record) => ({ onClick: () => { setDetailRecord(record); setDetailType('unit'); setDetailOpen(true) }, style: { cursor: 'pointer' } })} />
             ),
         },
         {
@@ -278,7 +287,8 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
             label: <Badge count={pendingSpec} offset={[10, 0]} size="small"><Space><ExperimentOutlined />Spec Tests</Space></Badge>,
             children: (
                 <Table dataSource={specTests} columns={specColumns} rowKey="id" loading={loading} size="small" pagination={false}
-                    locale={{ emptyText: <Empty description="No spec test proposals" /> }} />
+                    locale={{ emptyText: <Empty description="No spec test proposals" /> }}
+                    onRow={(record) => ({ onClick: () => { setDetailRecord(record); setDetailType('spec'); setDetailOpen(true) }, style: { cursor: 'pointer' } })} />
             ),
         },
         {
@@ -286,7 +296,8 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
             label: <Badge count={pendingStory} offset={[10, 0]} size="small"><Space><BookOutlined />Stories</Space></Badge>,
             children: (
                 <Table dataSource={stories} columns={storyColumns} rowKey="id" loading={loading} size="small" pagination={false}
-                    locale={{ emptyText: <Empty description="No story proposals" /> }} />
+                    locale={{ emptyText: <Empty description="No story proposals" /> }}
+                    onRow={(record) => ({ onClick: () => { setDetailRecord(record); setDetailType('story'); setDetailOpen(true) }, style: { cursor: 'pointer' } })} />
             ),
         },
     ]
@@ -297,6 +308,9 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <Title level={3} style={{ margin: 0 }}>Proposals</Title>
                 <Space>
+                    <Button icon={<ReloadOutlined />} loading={loading} onClick={loadAll}>
+                        Refresh
+                    </Button>
                     <Button icon={<PlusOutlined />} onClick={() => { setCreateType('unit'); setShowCreate(true) }}>
                         Unit Test
                     </Button>
@@ -378,6 +392,86 @@ export function ProposalsPage({ projectId }: ProposalsPageProps) {
                     )}
                 </Form>
             </Modal>
+
+            {/* Detail Drawer */}
+            <Drawer
+                title={detailType === 'unit' ? 'Unit Test Proposal' : detailType === 'spec' ? 'Spec Test Proposal' : 'Story Proposal'}
+                open={detailOpen}
+                onClose={() => { setDetailOpen(false); setDetailRecord(null) }}
+                width={600}
+            >
+                {detailRecord && (
+                    <Descriptions column={1} bordered size="small">
+                        <Descriptions.Item label="ID">
+                            <Text copyable style={{ fontFamily: 'monospace', fontSize: 12 }}>{detailRecord.id}</Text>
+                        </Descriptions.Item>
+
+                        {detailType === 'unit' && 'path' in detailRecord && (
+                            <Descriptions.Item label="Path">
+                                <Text code>{(detailRecord as UnitTestProposal).path}</Text>
+                            </Descriptions.Item>
+                        )}
+
+                        {(detailType === 'spec' || detailType === 'story') && 'title' in detailRecord && (
+                            <Descriptions.Item label="Title">
+                                <Text strong>{(detailRecord as SpecTestProposal | StoryProposal).title}</Text>
+                            </Descriptions.Item>
+                        )}
+
+                        {'description' in detailRecord && (detailRecord as UnitTestProposal | SpecTestProposal).description && (
+                            <Descriptions.Item label="Description">
+                                <div style={{ whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>
+                                    {(detailRecord as UnitTestProposal | SpecTestProposal).description}
+                                </div>
+                            </Descriptions.Item>
+                        )}
+
+                        {detailType === 'story' && 'enrichedText' in detailRecord && (detailRecord as StoryProposal).enrichedText && (
+                            <Descriptions.Item label="Content">
+                                <div style={{ whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>
+                                    {(detailRecord as StoryProposal).enrichedText}
+                                </div>
+                            </Descriptions.Item>
+                        )}
+
+                        <Descriptions.Item label="Status">
+                            <Tag color={statusColor(detailRecord.status)}>{detailRecord.status}</Tag>
+                        </Descriptions.Item>
+
+                        <Descriptions.Item label="Proposed By">
+                            {detailRecord.proposedBy}
+                        </Descriptions.Item>
+
+                        {'linkedFilePath' in detailRecord && (
+                            <Descriptions.Item label="Linked File">
+                                {(detailRecord as UnitTestProposal | SpecTestProposal).linkedFilePath
+                                    ? <Text code>{(detailRecord as UnitTestProposal | SpecTestProposal).linkedFilePath}</Text>
+                                    : <Text type="secondary">Not linked</Text>}
+                            </Descriptions.Item>
+                        )}
+
+                        {'reviewedBy' in detailRecord && detailRecord.reviewedBy && (
+                            <Descriptions.Item label="Reviewed By">
+                                {detailRecord.reviewedBy}
+                            </Descriptions.Item>
+                        )}
+
+                        {'reviewNote' in detailRecord && (detailRecord as UnitTestProposal).reviewNote && (
+                            <Descriptions.Item label="Review Note">
+                                {(detailRecord as UnitTestProposal).reviewNote}
+                            </Descriptions.Item>
+                        )}
+
+                        <Descriptions.Item label="Created">
+                            {new Date(detailRecord.createdAt).toLocaleString()}
+                        </Descriptions.Item>
+
+                        <Descriptions.Item label="Updated">
+                            {new Date(detailRecord.updatedAt).toLocaleString()}
+                        </Descriptions.Item>
+                    </Descriptions>
+                )}
+            </Drawer>
         </div>
     )
 }

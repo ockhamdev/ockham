@@ -2,51 +2,84 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { auth } from '@/backend/infrastructure/auth'
 import { headers } from 'next/headers'
-import { eq } from 'drizzle-orm'
 import { db } from '@/backend/infrastructure/db'
-import { userTokens } from '@/backend/infrastructure/db/schema'
+import { sessions, users } from '@/backend/infrastructure/db/schema'
+import { eq, and, gt } from 'drizzle-orm'
 
 /**
- * SHA-256 hash (hex string)
- */
-async function sha256(input: string): Promise<string> {
-    const data = new TextEncoder().encode(input)
-    const buf = await crypto.subtle.digest('SHA-256', data)
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-/**
- * tRPC 上下文 — 支持两种认证方式：
- * 1. better-auth cookie session（Web UI）
- * 2. Bearer token（MCP / API）
+ * tRPC 上下文 — 通过 better-auth cookie session 认证
+ *
+ * better-auth 的 getSession 需要签名 cookie (token.signature)。
+ * 但 Desktop 的 renderer 通过 fetch 登录时，浏览器安全策略不允许
+ * JS 读取 set-cookie header，所以只能保存 JSON body 里的裸 token。
+ *
+ * 当签名 cookie 验证失败时，回退到直接用裸 token 查询数据库。
  */
 export async function createTRPCContext() {
     const hdrs = await headers()
 
-    // 1️⃣ Try Bearer token auth first
-    const authorization = hdrs.get('authorization')
-    if (authorization?.startsWith('Bearer ')) {
-        const rawToken = authorization.slice(7)
-        const tokenHash = await sha256(rawToken)
-        const [row] = await db.select().from(userTokens).where(eq(userTokens.tokenHash, tokenHash))
-
-        if (row && !row.revokedAt && (!row.expiresAt || row.expiresAt > new Date())) {
-            // Update lastUsedAt (fire-and-forget)
-            db.update(userTokens).set({ lastUsedAt: new Date() }).where(eq(userTokens.id, row.id)).then(() => { })
-            return {
-                session: { user: { id: row.userId } } as { user: { id: string } },
-            }
-        }
-    }
-
-    // 2️⃣ Fall back to better-auth session (cookie-based)
+    // 1. Try better-auth signed cookie validation (preferred)
     const session = await auth.api.getSession({
         headers: hdrs,
     })
 
-    return {
-        session,
+    if (session) {
+        return { session }
     }
+
+    // 2. Fallback: extract bare token from cookie and look up in DB
+    const cookieHeader = hdrs.get('cookie') || ''
+    const tokenMatch = cookieHeader.match(/better-auth\.session_token=([^;.\s]+)/)
+    const bareToken = tokenMatch?.[1]
+
+    if (bareToken) {
+        const [row] = await db
+            .select({
+                sessionId: sessions.id,
+                sessionToken: sessions.token,
+                expiresAt: sessions.expiresAt,
+                userId: sessions.userId,
+                userName: users.name,
+                userEmail: users.email,
+                userImage: users.image,
+                userEmailVerified: users.emailVerified,
+                userCreatedAt: users.createdAt,
+                userUpdatedAt: users.updatedAt,
+            })
+            .from(sessions)
+            .innerJoin(users, eq(sessions.userId, users.id))
+            .where(
+                and(
+                    eq(sessions.token, bareToken),
+                    gt(sessions.expiresAt, new Date()),
+                )
+            )
+            .limit(1)
+
+        if (row) {
+            return {
+                session: {
+                    session: {
+                        id: row.sessionId,
+                        token: row.sessionToken,
+                        expiresAt: row.expiresAt,
+                        userId: row.userId,
+                    },
+                    user: {
+                        id: row.userId,
+                        name: row.userName,
+                        email: row.userEmail,
+                        image: row.userImage,
+                        emailVerified: row.userEmailVerified,
+                        createdAt: row.userCreatedAt,
+                        updatedAt: row.userUpdatedAt,
+                    },
+                },
+            }
+        }
+    }
+
+    return { session: null }
 }
 
 export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>
@@ -60,7 +93,7 @@ export const publicProcedure = t.procedure
 export const createCallerFactory = t.createCallerFactory
 
 /**
- * 受保护的 procedure — 需要登录（session 或 token）
+ * 受保护的 procedure — 需要登录
  */
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     if (!ctx.session?.user) {
@@ -74,3 +107,4 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
         },
     })
 })
+

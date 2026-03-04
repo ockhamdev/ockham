@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Button, List, Typography, Select, Space, message } from 'antd'
+import { Button, List, Typography, Select, Space, Empty, Spin, Tag, Modal, message } from 'antd'
 import {
     FolderOpenOutlined,
-    DeleteOutlined,
-    FolderOutlined,
     TeamOutlined,
+    AppstoreOutlined,
+    LinkOutlined,
 } from '@ant-design/icons'
+import { listProjects, type Project } from '../api'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -16,15 +17,34 @@ interface Team {
 }
 
 interface WelcomePageProps {
-    recentWorkspaces: string[]
     openWorkspace: (path?: string) => Promise<string | null>
-    removeRecent: (path: string) => Promise<void>
 }
 
-export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: WelcomePageProps) {
+/** localStorage key for saved project → local directory mapping */
+const projectPathKey = (projectId: string) => `ockham:project-path:${projectId}`
+
+/**
+ * Normalize a git remote URL for comparison.
+ * Strips protocol, trailing .git, user@ prefix, and port.
+ * e.g. "git@github.com:org/repo.git" → "github.com/org/repo"
+ *      "https://github.com/org/repo"  → "github.com/org/repo"
+ */
+function normalizeGitRemote(url: string): string {
+    let u = url.trim()
+    // SSH: git@host:org/repo.git → host/org/repo
+    const sshMatch = u.match(/^[\w-]+@([\w.-]+):(.*?)(?:\.git)?$/)
+    if (sshMatch) return `${sshMatch[1]}/${sshMatch[2]}`
+    // HTTPS
+    u = u.replace(/^https?:\/\//, '').replace(/\.git$/, '')
+    return u
+}
+
+export function WelcomePage({ openWorkspace }: WelcomePageProps) {
     const [teams, setTeams] = useState<Team[]>([])
     const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
     const [loadingTeams, setLoadingTeams] = useState(true)
+    const [projects, setProjects] = useState<Project[]>([])
+    const [loadingProjects, setLoadingProjects] = useState(false)
 
     // Load teams on mount
     useEffect(() => {
@@ -41,31 +61,84 @@ export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: W
         })()
     }, [])
 
+    // Load projects when team changes
+    useEffect(() => {
+        if (!currentTeamId) {
+            setProjects([])
+            return
+        }
+        setLoadingProjects(true)
+        listProjects(currentTeamId)
+            .then(setProjects)
+            .catch(() => setProjects([]))
+            .finally(() => setLoadingProjects(false))
+    }, [currentTeamId])
+
+
     /**
-     * Open a workspace, then ensure the project exists in the DB for the selected team.
+     * Open a cloud project: check saved local path or prompt directory picker,
+     * then validate git remote origin matches the project slug.
      */
-    const handleOpenWorkspace = useCallback(async (path?: string) => {
-        const result = await openWorkspace(path)
-        if (!result || !currentTeamId) return result
+    const handleOpenProject = useCallback(async (project: Project) => {
+        const savedPath = localStorage.getItem(projectPathKey(project.id))
 
-        // Check git remote origin
-        try {
-            const remoteOrigin = await window.gitApi.getRemoteOrigin(result)
-            if (remoteOrigin) {
-                // Extract project name from remote URL
-                const name = remoteOrigin
-                    .replace(/\.git$/, '')
-                    .split('/')
-                    .pop() || result.split('/').pop() || 'Untitled'
-
-                await window.projectApi.ensure(currentTeamId, remoteOrigin, name)
+        if (savedPath) {
+            // Verify the saved path still has the correct git remote
+            try {
+                const remote = await window.gitApi.getRemoteOrigin(savedPath)
+                if (remote && normalizeGitRemote(remote) === normalizeGitRemote(project.slug)) {
+                    await openWorkspace(savedPath)
+                    return
+                }
+            } catch {
+                // Saved path is stale, fall through to picker
             }
-        } catch {
-            // Non-blocking — project linking is best-effort
+            // Clear stale mapping
+            localStorage.removeItem(projectPathKey(project.id))
         }
 
-        return result
-    }, [openWorkspace, currentTeamId])
+        // No saved path — ask user to select directory
+        const selectedDir = await openWorkspace()
+        if (!selectedDir) return // user cancelled
+
+        // Validate git remote
+        try {
+            const remote = await window.gitApi.getRemoteOrigin(selectedDir)
+            if (!remote) {
+                Modal.error({
+                    title: 'Not a Git Repository',
+                    content: `The selected directory does not have a git remote origin.\n\nPlease select the local clone of this project.`,
+                })
+                return
+            }
+
+            const normalizedRemote = normalizeGitRemote(remote)
+            const normalizedSlug = normalizeGitRemote(project.slug)
+
+            if (normalizedRemote !== normalizedSlug) {
+                Modal.error({
+                    title: 'Git Remote Mismatch',
+                    content: (
+                        <div>
+                            <p>The selected directory's git remote does not match this project.</p>
+                            <p><strong>Expected:</strong> <code>{project.slug}</code></p>
+                            <p><strong>Got:</strong> <code>{remote}</code></p>
+                        </div>
+                    ),
+                })
+                return
+            }
+
+            // Match! Save mapping
+            localStorage.setItem(projectPathKey(project.id), selectedDir)
+            message.success(`Opened project: ${project.name}`)
+        } catch {
+            Modal.error({
+                title: 'Error',
+                content: 'Failed to verify git remote origin for the selected directory.',
+            })
+        }
+    }, [openWorkspace])
 
     return (
         <div
@@ -109,60 +182,84 @@ export function WelcomePage({ recentWorkspaces, openWorkspace, removeRecent }: W
                     type="primary"
                     size="large"
                     icon={<FolderOpenOutlined />}
-                    onClick={() => handleOpenWorkspace()}
+                    onClick={() => openWorkspace()}
                     style={{ marginTop: 16 }}
                 >
                     Open Workspace
                 </Button>
             </div>
 
-            {recentWorkspaces.length > 0 && (
-                <div style={{ width: '100%', maxWidth: 600 }}>
+            {/* Projects in current team */}
+            {currentTeamId && (
+                <div style={{ width: '100%', maxWidth: 600, marginBottom: 32 }}>
                     <Title level={4} style={{ marginBottom: 16 }}>
-                        Recent Projects
+                        <AppstoreOutlined style={{ marginRight: 8 }} />
+                        Projects
+                        {teams.length > 0 && (
+                            <Text type="secondary" style={{ fontSize: 14, fontWeight: 400, marginLeft: 8 }}>
+                                in {teams.find(t => t.id === currentTeamId)?.name}
+                            </Text>
+                        )}
                     </Title>
-                    <List
-                        dataSource={recentWorkspaces}
-                        renderItem={(ws) => {
-                            const folderName = ws.split('/').pop() || ws
-                            return (
-                                <List.Item
-                                    style={{
-                                        cursor: 'pointer',
-                                        padding: '12px 16px',
-                                        borderRadius: 8,
-                                        transition: 'background 0.2s',
-                                    }}
-                                    onClick={() => handleOpenWorkspace(ws)}
-                                    actions={[
-                                        <Button
-                                            key="remove"
-                                            type="text"
-                                            size="small"
-                                            danger
-                                            icon={<DeleteOutlined />}
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                removeRecent(ws)
-                                            }}
-                                        />,
-                                    ]}
-                                >
-                                    <List.Item.Meta
-                                        avatar={
-                                            <FolderOutlined
-                                                style={{ fontSize: 24, color: 'var(--ant-primary-color)' }}
-                                            />
-                                        }
-                                        title={<Text strong>{folderName}</Text>}
-                                        description={<Text type="secondary">{ws}</Text>}
-                                    />
-                                </List.Item>
-                            )
-                        }}
-                    />
+                    {loadingProjects ? (
+                        <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
+                    ) : projects.length === 0 ? (
+                        <Empty
+                            description="No projects yet"
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            style={{ padding: 24 }}
+                        />
+                    ) : (
+                        <List
+                            dataSource={projects}
+                            renderItem={(project) => {
+                                const savedPath = localStorage.getItem(projectPathKey(project.id))
+                                return (
+                                    <List.Item
+                                        style={{ padding: '12px 16px', cursor: 'pointer' }}
+                                        onClick={() => handleOpenProject(project)}
+                                        actions={[
+                                            <Button
+                                                key="open"
+                                                type="link"
+                                                size="small"
+                                                icon={<FolderOpenOutlined />}
+                                                onClick={(e) => { e.stopPropagation(); handleOpenProject(project) }}
+                                            >
+                                                Open
+                                            </Button>,
+                                        ]}
+                                    >
+                                        <List.Item.Meta
+                                            avatar={
+                                                <AppstoreOutlined
+                                                    style={{ fontSize: 20, color: 'var(--ant-primary-color)', marginTop: 4 }}
+                                                />
+                                            }
+                                            title={<Text strong>{project.name}</Text>}
+                                            description={
+                                                <div>
+                                                    <div>
+                                                        <LinkOutlined style={{ fontSize: 11, marginRight: 4, opacity: 0.5 }} />
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>{project.slug}</Text>
+                                                    </div>
+                                                    {savedPath && (
+                                                        <div style={{ marginTop: 2 }}>
+                                                            <FolderOpenOutlined style={{ fontSize: 11, marginRight: 4, opacity: 0.5 }} />
+                                                            <Text style={{ fontSize: 12, color: '#52c41a' }}>{savedPath}</Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            }
+                                        />
+                                    </List.Item>
+                                )
+                            }}
+                        />
+                    )}
                 </div>
             )}
+
         </div>
     )
 }
