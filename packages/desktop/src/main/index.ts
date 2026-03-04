@@ -11,6 +11,7 @@ import { registerSpecTestsHandlers } from './ipc/specTestsHandlers'
 import { registerAuthHandlers } from './ipc/authHandlers'
 import { registerGitHandlers } from './ipc/gitHandlers'
 import { registerTeamProjectHandlers } from './ipc/teamProjectHandlers'
+import { startMcpServer } from './mcpServer'
 import path from 'path'
 
 /**
@@ -183,6 +184,9 @@ app.whenReady().then(() => {
     registerAuthHandlers()
     registerGitHandlers()
     registerTeamProjectHandlers()
+
+    // Start MCP server (stdio transport for AI clients)
+    startMcpServer()
 
     // Build menus
     buildAppMenu()

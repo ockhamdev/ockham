@@ -3,7 +3,7 @@ import { db } from '../db'
 import { userTokens } from '../db/schema'
 import { toId } from '@/backend/domain/shared'
 import type { Id } from '@/backend/domain/shared'
-import type { UserToken, TokenScope, UserTokenRepository } from '@/backend/domain/user-token'
+import type { UserToken, UserTokenRepository } from '@/backend/domain/user-token'
 
 export class DrizzleUserTokenRepository implements UserTokenRepository {
     async create(token: UserToken): Promise<UserToken> {
@@ -13,7 +13,6 @@ export class DrizzleUserTokenRepository implements UserTokenRepository {
             name: token.name,
             tokenHash: token.tokenHash,
             tokenPrefix: token.tokenPrefix,
-            scopes: JSON.stringify(token.scopes),
             expiresAt: token.expiresAt,
             lastUsedAt: token.lastUsedAt,
             revokedAt: token.revokedAt,
@@ -50,23 +49,17 @@ export class DrizzleUserTokenRepository implements UserTokenRepository {
     }
 
     private toToken(row: typeof userTokens.$inferSelect): UserToken {
-        let scopes: TokenScope[] = []
-        try {
-            scopes = JSON.parse(row.scopes)
-        } catch { /* fallback to empty */ }
-
         return {
             id: toId(row.id),
             userId: toId(row.userId),
             name: row.name,
             tokenHash: row.tokenHash,
             tokenPrefix: row.tokenPrefix,
-            scopes,
             expiresAt: row.expiresAt,
             lastUsedAt: row.lastUsedAt,
             revokedAt: row.revokedAt,
             createdAt: row.createdAt,
-            updatedAt: row.createdAt, // no updatedAt column — use createdAt
+            updatedAt: row.createdAt,
         }
     }
 }

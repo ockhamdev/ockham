@@ -577,13 +577,10 @@ export async function deleteStoryProposal(id: string): Promise<void> {
 
 // ── User Tokens ──
 
-export type TokenScope = 'mcp:read' | 'mcp:write' | 'api:read' | 'api:write'
-
 export interface UserTokenListItem {
     id: string
     name: string
     tokenPrefix: string
-    scopes: TokenScope[]
     expiresAt: string | null
     lastUsedAt: string | null
     revokedAt: string | null
@@ -597,7 +594,7 @@ export interface UserTokenCreateResult extends UserTokenListItem {
 }
 
 export async function createUserToken(data: {
-    name: string; scopes?: TokenScope[]; expiresInDays?: number
+    name: string; expiresInDays?: number
 }): Promise<UserTokenCreateResult> {
     return trpcMutation<UserTokenCreateResult>('userToken.create', data)
 }

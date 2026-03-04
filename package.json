@@ -17,7 +17,10 @@
     "db:generate": "pnpm --filter @ockham/web db:generate",
     "db:migrate": "pnpm --filter @ockham/web db:migrate",
     "db:push": "pnpm --filter @ockham/web db:push",
-    "db:studio": "pnpm --filter @ockham/web db:studio"
+    "db:studio": "pnpm --filter @ockham/web db:studio",
+    "mcp:dev": "pnpm --filter @ockham/mcp dev",
+    "mcp:build": "pnpm --filter @ockham/mcp build",
+    "mcp:start": "pnpm --filter @ockham/mcp start"
   },
   "engines": {
     "node": ">=18.0.0",

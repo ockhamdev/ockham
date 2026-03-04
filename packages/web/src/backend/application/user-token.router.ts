@@ -3,7 +3,6 @@ import { router, protectedProcedure } from './trpc'
 import { createId, toId } from '@/backend/domain/shared'
 import { DrizzleUserTokenRepository } from '@/backend/infrastructure/repositories/user-token.repository'
 import { TRPCError } from '@trpc/server'
-import type { TokenScope } from '@/backend/domain/user-token'
 
 const repo = new DrizzleUserTokenRepository()
 
@@ -28,8 +27,6 @@ async function hashToken(raw: string): Promise<string> {
     return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-const tokenScopeSchema = z.enum(['mcp:read', 'mcp:write', 'api:read', 'api:write'])
-
 export const userTokenRouter = router({
     /**
      * Create a new token. Returns the raw token ONCE — it cannot be retrieved again.
@@ -37,7 +34,6 @@ export const userTokenRouter = router({
     create: protectedProcedure
         .input(z.object({
             name: z.string().min(1).max(100),
-            scopes: z.array(tokenScopeSchema).default(['mcp:read']),
             expiresInDays: z.number().int().positive().optional(), // null = never
         }))
         .mutation(async ({ input, ctx }) => {
@@ -56,7 +52,6 @@ export const userTokenRouter = router({
                 name: input.name,
                 tokenHash,
                 tokenPrefix,
-                scopes: input.scopes as TokenScope[],
                 expiresAt,
                 lastUsedAt: null,
                 revokedAt: null,
@@ -82,7 +77,6 @@ export const userTokenRouter = router({
                 id: t.id,
                 name: t.name,
                 tokenPrefix: t.tokenPrefix,
-                scopes: t.scopes,
                 expiresAt: t.expiresAt,
                 lastUsedAt: t.lastUsedAt,
                 revokedAt: t.revokedAt,

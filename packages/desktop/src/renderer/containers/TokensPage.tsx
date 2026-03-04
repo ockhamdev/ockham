@@ -5,7 +5,6 @@ import {
     Tag,
     Modal,
     Input,
-    Select,
     Space,
     Typography,
     message,
@@ -32,17 +31,11 @@ import {
     revokeUserToken,
     deleteUserToken,
     type UserTokenListItem,
-    type TokenScope,
 } from '../api'
 
 const { Title, Text, Paragraph } = Typography
 
-const SCOPE_OPTIONS: { label: string; value: TokenScope }[] = [
-    { label: 'MCP Read', value: 'mcp:read' },
-    { label: 'MCP Write', value: 'mcp:write' },
-    { label: 'API Read', value: 'api:read' },
-    { label: 'API Write', value: 'api:write' },
-]
+
 
 export function TokensPage() {
     const [tokens, setTokens] = useState<UserTokenListItem[]>([])
@@ -52,7 +45,6 @@ export function TokensPage() {
 
     // Form state
     const [name, setName] = useState('')
-    const [scopes, setScopes] = useState<TokenScope[]>(['mcp:read'])
     const [expiresInDays, setExpiresInDays] = useState<number | null>(null)
 
     // Newly created token display
@@ -82,7 +74,6 @@ export function TokensPage() {
         try {
             const result = await createUserToken({
                 name: name.trim(),
-                scopes,
                 expiresInDays: expiresInDays || undefined,
             })
             setNewRawToken(result.rawToken)
@@ -123,7 +114,6 @@ export function TokensPage() {
         setCreateModalOpen(false)
         setNewRawToken(null)
         setName('')
-        setScopes(['mcp:read'])
         setExpiresInDays(null)
     }
 
@@ -140,20 +130,6 @@ export function TokensPage() {
             key: 'tokenPrefix',
             render: (prefix: string) => (
                 <Text code style={{ fontSize: 12 }}>{prefix}••••••••</Text>
-            ),
-        },
-        {
-            title: 'Scopes',
-            dataIndex: 'scopes',
-            key: 'scopes',
-            render: (scopes: string[]) => (
-                <Space size={[0, 4]} wrap>
-                    {scopes.map((s) => (
-                        <Tag key={s} color={s.includes('write') ? 'orange' : 'blue'} style={{ fontSize: 11 }}>
-                            {s}
-                        </Tag>
-                    ))}
-                </Space>
             ),
         },
         {
@@ -312,16 +288,6 @@ export function TokensPage() {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 autoFocus
-                            />
-                        </Form.Item>
-                        <Form.Item label="Scopes">
-                            <Select
-                                mode="multiple"
-                                options={SCOPE_OPTIONS}
-                                value={scopes}
-                                onChange={setScopes}
-                                placeholder="Select permissions"
-                                style={{ width: '100%' }}
                             />
                         </Form.Item>
                         <Form.Item label="Expiration (days)">
