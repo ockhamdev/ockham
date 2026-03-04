@@ -28,14 +28,16 @@ import {
     CopyOutlined,
     LinkOutlined,
     CheckCircleOutlined,
+    CloseCircleOutlined,
     FileOutlined,
 } from '@ant-design/icons'
 import type { DataNode } from 'antd/es/tree'
 import type { SpecTest, SpecTestUnit, SpecTestGroup, SyntaxUnit } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
-import { getPromptTemplate, listSpecTests, createSpecTestInDB, updateSpecTestInDB, deleteSpecTestInDB, listSpecTestGroups, createSpecTestGroup } from '../api'
+import { getPromptTemplate, listSpecTests, createSpecTestInDB, updateSpecTestInDB, deleteSpecTestInDB, listSpecTestGroups, createSpecTestGroup, listSpecTestProposals, createSpecTestProposal, reviewSpecTestProposal, deleteSpecTestProposal } from '../api'
 import { SpecTestProposalDrawer } from '../components/SpecTestProposalDrawer'
+import { parsePath } from '../components/CopyableCell'
 import '../styles/spec-group-tree.css'
 
 const { Title, Text } = Typography
@@ -48,13 +50,6 @@ async function computeSha1(text: string): Promise<string> {
     return Array.from(new Uint8Array(hashBuf))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')
-}
-
-// ── Parse path into filePath and keyword ──
-function parsePath(p: string): { filePath: string; keyword: string } {
-    const idx = p.indexOf(' ')
-    if (idx === -1) return { filePath: p, keyword: '' }
-    return { filePath: p.substring(0, idx), keyword: p.substring(idx + 1).trim() }
 }
 
 // ── Build tree data from flat groups ──
@@ -812,7 +807,8 @@ function GroupEditorDrawer({
 }
 
 // ── Main SpecTestsPage ──
-export function SpecTestsPage({ projectId }: { projectId?: string }) {
+export function SpecTestsPage({ projectId, mode = 'tests' }: { projectId?: string; mode?: 'tests' | 'proposals' }) {
+    const isProposals = mode === 'proposals'
     const [tests, setTests] = useState<SpecTest[]>([])
     const [groups, setGroups] = useState<SpecTestGroup[]>([])
     const [selectedGroup, setSelectedGroup] = useState('default')
@@ -855,8 +851,9 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
     // Load data from DB
     useEffect(() => {
         if (projectId) {
+            const testsLoader = isProposals ? listSpecTestProposals : listSpecTests
             Promise.all([
-                listSpecTests(projectId),
+                testsLoader(projectId),
                 listSpecTestGroups(projectId),
             ]).then(([loadedTests, loadedGroups]) => {
                 setTests((loadedTests || []) as unknown as SpecTest[])
@@ -866,7 +863,7 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
         } else {
             setLoading(false)
         }
-    }, [projectId])
+    }, [projectId, isProposals])
 
     // Collect selected group + all descendant group keys
     const filteredTests = useMemo(() => {
@@ -893,22 +890,59 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
     }, [groups])
 
     const handleSaveTest = useCallback(async (st: SpecTest) => {
-        if (drawerMode === 'edit') {
+        if (drawerMode === 'edit' && !isProposals) {
             setTests(prev => prev.map((t) => (t.id === st.id ? st : t)))
             if (projectId) await updateSpecTestInDB(st.id, { title: st.title, description: st.description })
         } else {
             setTests(prev => [...prev, st])
-            if (projectId) await createSpecTestInDB({ projectId, title: st.title, description: st.description })
+            if (projectId) {
+                if (isProposals) {
+                    await createSpecTestProposal({ projectId, title: st.title, description: st.description, proposedBy: 'desktop' })
+                } else {
+                    await createSpecTestInDB({ projectId, title: st.title, description: st.description })
+                }
+            }
         }
         setDrawerOpen(false)
         setEditingTest(null)
-        message.success(drawerMode === 'edit' ? 'Spec test updated' : `Spec test created: ${st.title}`)
-    }, [drawerMode, projectId])
+        message.success(drawerMode === 'edit' ? 'Spec test updated' : `${isProposals ? 'Proposal' : 'Spec test'} created: ${st.title}`)
+    }, [drawerMode, projectId, isProposals])
 
     const handleDeleteTest = useCallback(async (id: string) => {
         setTests(prev => prev.filter((t) => t.id !== id))
-        if (projectId) await deleteSpecTestInDB(id)
-    }, [projectId])
+        if (projectId) {
+            if (isProposals) {
+                await deleteSpecTestProposal(id)
+            } else {
+                await deleteSpecTestInDB(id)
+            }
+        }
+    }, [projectId, isProposals])
+
+    // ── Proposals: approve/reject ──
+    const [reviewNote, setReviewNote] = useState('')
+    const handleReview = useCallback(async (id: string, action: 'approve' | 'reject') => {
+        if (action === 'approve') {
+            const entry = tests.find(t => t.id === id)
+            if (entry && !(entry as unknown as { linkedFilePath?: string }).linkedFilePath) {
+                message.warning('此提议还未 Link，请先 Link 后再审批')
+                return
+            }
+        }
+        try {
+            await reviewSpecTestProposal(id, action, reviewNote)
+            message.success(action === 'approve' ? 'Approved — spec test merged' : 'Rejected')
+            setReviewNote('')
+            if (projectId) {
+                listSpecTestProposals(projectId).then((items) => {
+                    if (items?.length) setTests(items as unknown as SpecTest[])
+                    else setTests([])
+                })
+            }
+        } catch (err) {
+            message.error(err instanceof Error ? err.message : 'Review failed')
+        }
+    }, [tests, reviewNote, projectId])
 
     const handleEditTest = useCallback((st: SpecTest) => {
         setEditingTest(st)
@@ -1088,7 +1122,7 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
         {
             title: 'Action',
             key: 'action',
-            width: '15%',
+            width: isProposals ? '22%' : '15%',
             render: (_: unknown, record: SpecTest) => {
                 const match = linkResults[record.id]
                 return (
@@ -1118,14 +1152,63 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
                             onClick={() => handleGeneratePrompt(record)}
                             title="Generate test prompt"
                         />
-                        <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            size="small"
-                            onClick={() => handleEditTest(record)}
-                        />
+                        {isProposals ? (
+                            <>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<CheckCircleOutlined />}
+                                    disabled={!(record as unknown as { linkedFilePath?: string }).linkedFilePath}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: 'Approve this proposal?',
+                                            content: (
+                                                <div>
+                                                    <p>This will create a spec test from the proposal.</p>
+                                                    <TextArea
+                                                        placeholder="Review note (optional)"
+                                                        rows={2}
+                                                        onChange={(e) => setReviewNote(e.target.value)}
+                                                    />
+                                                </div>
+                                            ),
+                                            onOk: () => handleReview(record.id, 'approve'),
+                                        })
+                                    }}
+                                >
+                                    Approve
+                                </Button>
+                                <Button
+                                    danger
+                                    size="small"
+                                    icon={<CloseCircleOutlined />}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: 'Reject this proposal?',
+                                            content: (
+                                                <TextArea
+                                                    placeholder="Rejection reason"
+                                                    rows={2}
+                                                    onChange={(e) => setReviewNote(e.target.value)}
+                                                />
+                                            ),
+                                            onOk: () => handleReview(record.id, 'reject'),
+                                        })
+                                    }}
+                                >
+                                    Reject
+                                </Button>
+                            </>
+                        ) : (
+                            <Button
+                                type="text"
+                                icon={<EditOutlined />}
+                                size="small"
+                                onClick={() => handleEditTest(record)}
+                            />
+                        )}
                         <Popconfirm
-                            title="Delete this spec test?"
+                            title={isProposals ? 'Delete this proposal?' : 'Delete this spec test?'}
                             onConfirm={() => handleDeleteTest(record.id)}
                             okText="Yes"
                             cancelText="No"
@@ -1209,7 +1292,7 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
                         )}
                     </div>
                     <Space>
-                        {projectId && (
+                        {!isProposals && projectId && (
                             <Button
                                 onClick={() => setShowProposals(true)}
                             >
@@ -1228,7 +1311,7 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
                             icon={<PlusOutlined />}
                             onClick={handleNewTest}
                         >
-                            New Spec Test
+                            {isProposals ? 'New Proposal' : 'New Spec Test'}
                         </Button>
                     </Space>
                 </div>
@@ -1244,7 +1327,7 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
                     />
                 ) : (
                     <Empty
-                        description="No spec tests in this group. Click 'New Spec Test' to create one."
+                        description={isProposals ? 'No proposals in this group.' : "No spec tests in this group. Click 'New Spec Test' to create one."}
                         style={{ marginTop: 80 }}
                     />
                 )}
@@ -1322,8 +1405,8 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
                 </div>
             </Drawer>
 
-            {/* Proposals Drawer */}
-            {projectId && (
+            {/* Proposals Drawer (only in tests mode) */}
+            {!isProposals && projectId && (
                 <SpecTestProposalDrawer
                     open={showProposals}
                     onClose={() => setShowProposals(false)}
@@ -1335,4 +1418,8 @@ export function SpecTestsPage({ projectId }: { projectId?: string }) {
             )}
         </div>
     )
+}
+
+export function SpecTestProposalsPage({ projectId }: { projectId?: string }) {
+    return <SpecTestsPage projectId={projectId} mode="proposals" />
 }

@@ -22,6 +22,7 @@ import {
     DeleteOutlined,
     EnterOutlined,
     CloseOutlined,
+    CloseCircleOutlined,
     WarningOutlined,
     EditOutlined,
     ThunderboltOutlined,
@@ -33,8 +34,13 @@ import {
 import type { TestCase, SyntaxUnit, SpecTest, SpecTestGroup } from '@ockham/shared'
 import { SourceViewer } from '../components/SourceViewer'
 import { MarkdownViewer } from '../components/MarkdownViewer'
-import { getPromptTemplate, listTestCases, createTestCaseInDB, updateTestCaseInDB, deleteTestCaseInDB } from '../api'
+import {
+    getPromptTemplate,
+    listTestCases, createTestCaseInDB, updateTestCaseInDB, deleteTestCaseInDB,
+    listUnitTestProposals, createUnitTestProposal, reviewUnitTestProposal, deleteUnitTestProposal,
+} from '../api'
 import { UnitTestProposalDrawer } from '../components/UnitTestProposalDrawer'
+import { CopyableCell, parsePath } from '../components/CopyableCell'
 
 const { Title, Text } = Typography
 
@@ -63,50 +69,7 @@ async function computeStrippedHash(text: string): Promise<string> {
     return computeSha1(text.replace(/\s/g, ''))
 }
 
-// ── Parse path into filePath and keyword ──
-function parsePath(p: string): { filePath: string; keyword: string } {
-    const idx = p.indexOf(' ')
-    if (idx === -1) return { filePath: p, keyword: '' }
-    return { filePath: p.substring(0, idx), keyword: p.substring(idx + 1) }
-}
 
-// ── Copyable cell with tooltip ──
-function CopyableCell({ value, fontSize = 12 }: { value: string; fontSize?: number }) {
-    return (
-        <Tooltip
-            title={
-                <div style={{ maxWidth: 400, wordBreak: 'break-all' }}>
-                    <div style={{ marginBottom: 6, fontFamily: 'monospace', fontSize: 12 }}>{value}</div>
-                    <Button
-                        size="small"
-                        type="primary"
-                        onClick={() => {
-                            navigator.clipboard.writeText(value)
-                            message.success('Copied')
-                        }}
-                    >
-                        Copy
-                    </Button>
-                </div>
-            }
-        >
-            <Text
-                code
-                style={{
-                    fontSize,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'block',
-                    maxWidth: '100%',
-                    cursor: 'pointer',
-                }}
-            >
-                {value}
-            </Text>
-        </Tooltip>
-    )
-}
 
 // ── Test Drawer (Create / Edit) ────────────────────────
 function TestDrawer({
@@ -277,7 +240,8 @@ function TestDrawer({
 
 // ── Main TestsPage ────────────────────────────────────
 
-function TestsPage({ projectId }: { projectId?: string }) {
+function TestsPage({ projectId, mode = 'tests' }: { projectId?: string; mode?: 'tests' | 'proposals' }) {
+    const isProposals = mode === 'proposals'
     // IPC only for local filesystem ops (lookupUnit, link)
     const localApi = window.testsApi
     const [tests, setTests] = useState<TestCase[]>([])
@@ -326,11 +290,13 @@ function TestsPage({ projectId }: { projectId?: string }) {
     // Load persisted test cases from DB on mount
     useEffect(() => {
         if (projectId) {
-            listTestCases(projectId).then((items) => {
+            const loader = isProposals ? listUnitTestProposals : listTestCases
+            loader(projectId).then((items) => {
                 if (items?.length) setTests(items as unknown as TestCase[])
+                else setTests([])
             })
         }
-    }, [projectId])
+    }, [projectId, isProposals])
 
     // Auto-focus input when shown
     useEffect(() => {
@@ -412,7 +378,7 @@ function TestsPage({ projectId }: { projectId?: string }) {
 
     const handleSaveFromDrawer = useCallback(
         async (tc: TestCase) => {
-            if (drawerMode === 'edit') {
+            if (drawerMode === 'edit' && !isProposals) {
                 setTests(prev => prev.map((t) => (t.id === tc.id ? tc : t)))
                 if (projectId) {
                     await updateTestCaseInDB(tc.id, { path: tc.path, contentHash: tc.contentHash, description: tc.description })
@@ -420,15 +386,19 @@ function TestsPage({ projectId }: { projectId?: string }) {
             } else {
                 setTests(prev => [...prev, tc])
                 if (projectId) {
-                    await createTestCaseInDB({ projectId, path: tc.path, contentHash: tc.contentHash, description: tc.description })
+                    if (isProposals) {
+                        await createUnitTestProposal({ projectId, path: tc.path, description: tc.description, proposedBy: 'desktop' })
+                    } else {
+                        await createTestCaseInDB({ projectId, path: tc.path, contentHash: tc.contentHash, description: tc.description })
+                    }
                 }
             }
             setDrawerOpen(false)
             setPendingUnit(null)
             setEditingTest(null)
-            message.success(drawerMode === 'edit' ? 'Test updated' : `Test created: ${parsePath(tc.path).keyword}`)
+            message.success(drawerMode === 'edit' ? 'Test updated' : `${isProposals ? 'Proposal' : 'Test'} created: ${parsePath(tc.path).keyword}`)
         },
-        [drawerMode, projectId]
+        [drawerMode, projectId, isProposals]
     )
 
     const handleEdit = useCallback((tc: TestCase) => {
@@ -452,11 +422,41 @@ function TestsPage({ projectId }: { projectId?: string }) {
         async (id: string) => {
             setTests(prev => prev.filter((t) => t.id !== id))
             if (projectId) {
-                await deleteTestCaseInDB(id)
+                if (isProposals) {
+                    await deleteUnitTestProposal(id)
+                } else {
+                    await deleteTestCaseInDB(id)
+                }
             }
         },
-        [projectId]
+        [projectId, isProposals]
     )
+
+    // ── Proposals: approve/reject ──
+    const [reviewNote, setReviewNote] = useState('')
+    const handleReview = useCallback(async (id: string, action: 'approve' | 'reject') => {
+        if (action === 'approve') {
+            const entry = tests.find(t => t.id === id)
+            if (entry && !(entry as unknown as { linkedFilePath?: string }).linkedFilePath) {
+                message.warning('此提议还未 Link，请先 Link 后再审批')
+                return
+            }
+        }
+        try {
+            await reviewUnitTestProposal(id, action, reviewNote)
+            message.success(action === 'approve' ? 'Approved — test merged' : 'Rejected')
+            setReviewNote('')
+            // Reload
+            if (projectId) {
+                listUnitTestProposals(projectId).then((items) => {
+                    if (items?.length) setTests(items as unknown as TestCase[])
+                    else setTests([])
+                })
+            }
+        } catch (err) {
+            message.error(err instanceof Error ? err.message : 'Review failed')
+        }
+    }, [tests, reviewNote, projectId])
 
     // ── Generate prompt state ──
     const [promptText, setPromptText] = useState('')
@@ -579,7 +579,7 @@ function TestsPage({ projectId }: { projectId?: string }) {
         {
             title: 'Action',
             key: 'action',
-            width: '10%',
+            width: isProposals ? '18%' : '10%',
             render: (_: unknown, record: TestCase) => {
                 const match = linkResults[record.id]
                 return (
@@ -609,14 +609,63 @@ function TestsPage({ projectId }: { projectId?: string }) {
                             onClick={() => handleGeneratePrompt(record)}
                             title="Generate test prompt"
                         />
-                        <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            size="small"
-                            onClick={() => handleEdit(record)}
-                        />
+                        {isProposals ? (
+                            <>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<CheckCircleOutlined />}
+                                    disabled={!(record as unknown as { linkedFilePath?: string }).linkedFilePath}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: 'Approve this proposal?',
+                                            content: (
+                                                <div>
+                                                    <p>This will create a unit test from the proposal.</p>
+                                                    <TextArea
+                                                        placeholder="Review note (optional)"
+                                                        rows={2}
+                                                        onChange={(e) => setReviewNote(e.target.value)}
+                                                    />
+                                                </div>
+                                            ),
+                                            onOk: () => handleReview(record.id, 'approve'),
+                                        })
+                                    }}
+                                >
+                                    Approve
+                                </Button>
+                                <Button
+                                    danger
+                                    size="small"
+                                    icon={<CloseCircleOutlined />}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: 'Reject this proposal?',
+                                            content: (
+                                                <TextArea
+                                                    placeholder="Rejection reason"
+                                                    rows={2}
+                                                    onChange={(e) => setReviewNote(e.target.value)}
+                                                />
+                                            ),
+                                            onOk: () => handleReview(record.id, 'reject'),
+                                        })
+                                    }}
+                                >
+                                    Reject
+                                </Button>
+                            </>
+                        ) : (
+                            <Button
+                                type="text"
+                                icon={<EditOutlined />}
+                                size="small"
+                                onClick={() => handleEdit(record)}
+                            />
+                        )}
                         <Popconfirm
-                            title="Delete this test case?"
+                            title={isProposals ? 'Delete this proposal?' : 'Delete this test case?'}
                             onConfirm={() => handleDelete(record.id)}
                             okText="Yes"
                             cancelText="No"
@@ -641,10 +690,10 @@ function TestsPage({ projectId }: { projectId?: string }) {
                 }}
             >
                 <Title level={3} style={{ margin: 0 }}>
-                    Unit Tests
+                    {isProposals ? 'Unit Test Proposals' : 'Unit Tests'}
                 </Title>
                 <Space>
-                    {projectId && (
+                    {!isProposals && projectId && (
                         <Button
                             onClick={() => setShowProposals(true)}
                         >
@@ -664,7 +713,7 @@ function TestsPage({ projectId }: { projectId?: string }) {
                         onClick={handleNewTest}
                         disabled={showInput}
                     >
-                        New Test
+                        {isProposals ? 'New Proposal' : 'New Test'}
                     </Button>
                 </Space>
             </div>
@@ -731,7 +780,7 @@ function TestsPage({ projectId }: { projectId?: string }) {
                 />
             ) : (
                 <Empty
-                    description="No test cases yet. Click 'New Test' to create one."
+                    description={isProposals ? 'No proposals yet.' : "No test cases yet. Click 'New Test' to create one."}
                     style={{ marginTop: 80 }}
                 />
             )}
@@ -947,8 +996,8 @@ function TestsPage({ projectId }: { projectId?: string }) {
                 })()}
             </Drawer>
 
-            {/* Proposals Drawer */}
-            {projectId && (
+            {/* Proposals Drawer (only in tests mode) */}
+            {!isProposals && projectId && (
                 <UnitTestProposalDrawer
                     open={showProposals}
                     onClose={() => setShowProposals(false)}
@@ -965,4 +1014,8 @@ function TestsPage({ projectId }: { projectId?: string }) {
 
 export function UnitTestsPage({ projectId }: { projectId?: string }) {
     return <TestsPage projectId={projectId} />
+}
+
+export function UnitTestProposalsPage({ projectId }: { projectId?: string }) {
+    return <TestsPage projectId={projectId} mode="proposals" />
 }
