@@ -16,7 +16,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import * as http from 'http'
 import * as path from 'path'
 import * as fs from 'fs'
-import { randomUUID } from 'crypto'
+// randomUUID no longer needed — stateless transport doesn't generate session IDs
 import { z } from 'zod'
 import * as codescanStore from './infrastructure/codescanStore'
 import { trpcQuery, trpcMutation } from './infrastructure/apiClient'
@@ -106,7 +106,7 @@ const MCP_PORT = parseInt(process.env.OCKHAM_MCP_PORT || '3100', 10)
 const MCP_PATH = '/mcp'
 
 // Track active sessions: sessionId → transport
-const activeSessions = new Map<string, StreamableHTTPServerTransport>()
+// const activeSessions = new Map<string, StreamableHTTPServerTransport>()
 
 export async function startMcpServer(): Promise<void> {
     try {
@@ -137,78 +137,37 @@ export async function startMcpServer(): Promise<void> {
                 return
             }
 
-            // MCP path — route to correct transport by session ID
-            const sessionId = req.headers['mcp-session-id'] as string | undefined
-            console.log(`[MCP] ${req.method} ${url.pathname} session=${sessionId || '(none)'}`)
+            console.log(`[MCP] ${req.method} ${url.pathname}`)
 
-            if (sessionId && activeSessions.has(sessionId)) {
-                // Existing session — delegate to its transport
-                try {
-                    await activeSessions.get(sessionId)!.handleRequest(req, res)
-                } catch (err) {
-                    console.error('[MCP] Error handling request:', err)
-                    if (!res.headersSent) {
-                        res.writeHead(500, { 'Content-Type': 'text/plain' })
-                        res.end('Internal Server Error')
-                    }
+            // MCP path — stateless: each request gets its own server + transport pair.
+            // This avoids _transport race conditions in Server.connect() when handling
+            // concurrent requests. The SDK reference implementation does the same.
+            try {
+                const transport = new StreamableHTTPServerTransport({
+                    sessionIdGenerator: undefined, // stateless — no session management
+                    enableJsonResponse: true,      // return JSON instead of SSE for POST
+                })
+
+                const server = new McpServer({
+                    name: 'ockham-mcp-server',
+                    version: '1.0.0',
+                })
+                registerAllTools(server)
+
+                // Clean up transport when response closes
+                res.on('close', () => {
+                    transport.close().catch(() => { })
+                })
+
+                await server.connect(transport)
+                await transport.handleRequest(req, res)
+            } catch (err) {
+                console.error('[MCP] Error handling request:', err)
+                if (!res.headersSent) {
+                    res.writeHead(500, { 'Content-Type': 'text/plain' })
+                    res.end('Internal Server Error')
                 }
-                return
             }
-
-            // New session — only POST (for initialize) can create one
-            if (req.method === 'POST') {
-                try {
-                    const transport = new StreamableHTTPServerTransport({
-                        sessionIdGenerator: () => randomUUID(),
-                    })
-
-                    // Create a new MCP server instance for this session
-                    const sessionServer = new McpServer({
-                        name: 'ockham-mcp-server',
-                        version: '1.0.0',
-                    })
-
-                    // Re-register all tools on the new server instance
-                    registerAllTools(sessionServer)
-
-                    await sessionServer.connect(transport)
-
-                    // Track the session after transport assigns it
-                    transport.onclose = () => {
-                        const sid = transport.sessionId
-                        if (sid) activeSessions.delete(sid)
-                    }
-
-                    await transport.handleRequest(req, res)
-
-                    // Store after first request so sessionId is assigned
-                    if (transport.sessionId) {
-                        activeSessions.set(transport.sessionId, transport)
-                    }
-                } catch (err) {
-                    console.error('[MCP] Error creating session:', err)
-                    if (!res.headersSent) {
-                        res.writeHead(500, { 'Content-Type': 'text/plain' })
-                        res.end('Internal Server Error')
-                    }
-                }
-                return
-            }
-
-            // GET without a known session ID — per Streamable HTTP spec, client
-            // should initialize (POST) first, then GET with the returned session ID.
-            // Some clients (e.g. Antigravity) try GET first to open an SSE stream.
-            // Return 405 Method Not Allowed instead of 400 Bad Request so the client
-            // falls back to POST-only mode.
-            if (req.method === 'GET') {
-                res.writeHead(405, { 'Content-Type': 'text/plain' })
-                res.end('Method Not Allowed: initialize via POST first')
-                return
-            }
-
-            // DELETE without session
-            res.writeHead(400, { 'Content-Type': 'text/plain' })
-            res.end('Bad Request: Missing Mcp-Session-Id header')
         })
 
         httpServer.listen(MCP_PORT, () => {
@@ -718,4 +677,4 @@ The description should contain:
 }
 
 // ── Test-only exports ────────────────────────────────
-export { resolveProjectId as _resolveProjectId }
+export { resolveProjectId as _resolveProjectId, lookupUnits as _lookupUnits, registerAllTools as _registerAllTools }

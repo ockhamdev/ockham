@@ -38,6 +38,7 @@ import {
     getPromptTemplate,
     listTestCases, createTestCaseInDB, updateTestCaseInDB, deleteTestCaseInDB,
     listUnitTestProposals, createUnitTestProposal, reviewUnitTestProposal, deleteUnitTestProposal,
+    approveLinkedTest,
 } from '../api'
 import { UnitTestProposalDrawer } from '../components/UnitTestProposalDrawer'
 import { CopyableCell, parsePath } from '../components/CopyableCell'
@@ -435,14 +436,15 @@ function TestsPage({ projectId, mode = 'tests' }: { projectId?: string; mode?: '
     // ── Proposals: approve/reject ──
     const [reviewNote, setReviewNote] = useState('')
     const handleReview = useCallback(async (id: string, action: 'approve' | 'reject') => {
-        if (action === 'approve') {
-            const entry = tests.find(t => t.id === id)
-            if (entry && !(entry as unknown as { linkedFilePath?: string }).linkedFilePath) {
-                message.warning('此提议还未 Link，请先 Link 后再审批')
-                return
-            }
-        }
         try {
+            // Persist link if available in local linkResults
+            if (action === 'approve' && linkResults[id]) {
+                try {
+                    await approveLinkedTest(id, linkResults[id].filePath, '')
+                } catch {
+                    // link persist failed — proceed anyway
+                }
+            }
             await reviewUnitTestProposal(id, action, reviewNote)
             message.success(action === 'approve' ? 'Approved — test merged' : 'Rejected')
             setReviewNote('')
@@ -456,7 +458,7 @@ function TestsPage({ projectId, mode = 'tests' }: { projectId?: string; mode?: '
         } catch (err) {
             message.error(err instanceof Error ? err.message : 'Review failed')
         }
-    }, [tests, reviewNote, projectId])
+    }, [linkResults, reviewNote, projectId])
 
     // ── Generate prompt state ──
     const [promptText, setPromptText] = useState('')
@@ -615,7 +617,7 @@ function TestsPage({ projectId, mode = 'tests' }: { projectId?: string; mode?: '
                                     type="primary"
                                     size="small"
                                     icon={<CheckCircleOutlined />}
-                                    disabled={!(record as unknown as { linkedFilePath?: string }).linkedFilePath}
+                                    disabled={false}
                                     onClick={() => {
                                         Modal.confirm({
                                             title: 'Approve this proposal?',

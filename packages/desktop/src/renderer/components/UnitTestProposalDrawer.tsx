@@ -98,14 +98,15 @@ export function UnitTestProposalDrawer({ open, onClose, projectId, linkResults, 
     }, [form, projectId, loadEntries])
 
     const handleReview = useCallback(async (id: string, action: 'approve' | 'reject') => {
-        if (action === 'approve') {
-            const entry = entries.find(e => e.id === id)
-            if (entry && !entry.linkedFilePath) {
-                message.warning('此提议还未 Link 到测试实现文件，请先 Link 后再审批')
-                return
-            }
-        }
         try {
+            // Persist link if available in local linkResults
+            if (action === 'approve' && linkResults[id]) {
+                try {
+                    await approveLinkedTest(id, linkResults[id].filePath, '')
+                } catch {
+                    // link persist failed — proceed anyway
+                }
+            }
             await reviewUnitTestProposal(id, action, reviewNote)
             message.success(action === 'approve' ? 'Approved — test merged' : 'Rejected')
             setReviewingId(null)
@@ -115,7 +116,7 @@ export function UnitTestProposalDrawer({ open, onClose, projectId, linkResults, 
         } catch (err) {
             message.error(err instanceof Error ? err.message : 'Review failed')
         }
-    }, [entries, reviewNote, loadEntries, onApproved])
+    }, [linkResults, reviewNote, loadEntries, onApproved])
 
     const handleDelete = useCallback(async (id: string) => {
         try {
@@ -190,7 +191,7 @@ export function UnitTestProposalDrawer({ open, onClose, projectId, linkResults, 
                             type="primary"
                             size="small"
                             icon={<CheckCircleOutlined />}
-                            disabled={!record.linkedFilePath}
+                            disabled={false}
                             onClick={() => {
                                 setReviewingId(record.id)
                                 setReviewNote('')
